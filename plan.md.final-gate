@@ -1,0 +1,58 @@
+# /autoplan Final Gate (Phase 4)
+
+Timestamp: 2026-04-15 ~22:20 KST | Phase: 4 of 4
+
+## Pipeline Summary
+
+| Phase | Outcome | Voices | Key artifact |
+|---|---|---|---|
+| 1. CEO | 9/10 CONFIRMED + 9 revisions applied | Claude + Codex | `plan.md` (v2 post-revision), `INVARIANTS.md` split, `phase-02b-architecture-bakeoff.md` |
+| 2. Design | 7/7 CONFIRMED | Claude + Codex | `plan.md.design-review` |
+| 3. Eng | 6/6 CONFIRMED — **NOT implementation-ready** | Claude + Codex | `plan.md.eng-review` |
+| 3.5 DX | SKIP (no DX scope) | — | — |
+| 4. Gate | this doc | — | — |
+
+## Cross-Phase Convergence
+
+Design + Eng both flag the same underlying pathology: **the plan declares trust-critical behaviors as prose without pinning contracts, copy, or tests.**
+
+- Design: UF-24 facts-first, UF-02 skip, `no_match`/verification-pending card precedence, `전문가 검토 요청` post-click chain — all named, none specified.
+- Eng: EngineAdapter `sessionId`, MCP freshness under rerun, prompt-injection boundary, magic-link hygiene — all named, none specified.
+
+Same failure mode in both surfaces: **scope list where a spec is required.** A coding agent handed this plan today would produce a ChatGPT-shaped app with three silent-failure modes.
+
+## Structural Fixes (auto-applied at gate approval)
+
+**Design (9):** schema_error card · desktop packet rail · mobile viewport tests (multi-law/verification-pending/clarify) · citation card anatomy · IME/keyboard/safe-area rules · design tokens + spacing appendix · Korean microcopy table · onboarding + service-update step · `전문가 검토 요청` post-click subspec.
+
+**Eng (17):** `engine_sessions` table · server-only session handle + user binding · corpus sanitization + allowed-text invariant · citation fencing in prompts · MCP parallel fan-out + budget · rerun fail-closed to `verification_pending` · 02b extended criteria · internal `RetrievalResult` interface · magic-link lifecycle spec · pgvector migration split · embedding model pin + version column · temporal selection rules (repeal/reinstate/future) · idempotency payload-drift rejection · per-law + per-stage metrics · `reference_date` ≤ today cap · Vercel runtime pin · new regression suites (PG-11 load, PG-09/10 fuzz, UF-16/17 parser, schema exhaustion, verification parallelism, malicious-corpus).
+
+**Total: 26 auto-fixes queued for Codex to apply.**
+
+## User Challenges (require your decision)
+
+### CHALLENGE #1 — UF promotion back to MVP-Blocking
+**You said (CEO phase):** "split INVARIANTS into 11 PG + 8 UF MVP-Blocking, 18 UF Post-MVP."
+**Both design voices recommend:** promote UF-02 (skip), UF-09 (staged loading), UF-18 (multi-law caps), UF-24 (facts-first), UF-25 (reading-order) → new split **11 PG + 13 UF MVP / 13 UF Post-MVP**.
+**Cost if wrong (keep current split):** MVP ships ChatGPT-shape trust debt; Gate 2 (time-to-escalation reduction) likely fails.
+**Cost if right (promote):** Phase 9 scope +~1 week.
+
+### CHALLENGE #2 — Mobile one-screen hierarchy
+**You said (CEO phase):** mobile 360×800 path = `question → 결론 → first citation preview`.
+**Both design voices recommend:** two explicit viewport templates (single-law + multi-law) with **facts-first** card order per design doc, not conclusion-first. Multi-law needs 답변 범위/미답변 범위 banner slot.
+**Cost if wrong (keep conclusion-first):** design doc's "ChatGPT trap" explicitly lands.
+**Cost if right (facts-first):** may require 2-scroll first screen or collapsed verified-facts chip.
+
+### CHALLENGE #3 — Phase 02b bake-off criteria
+**Plan says:** latency/cost/freshness gates, 1-week spike.
+**Both eng voices recommend:** add **retrieval accuracy threshold, cold-start cost, degraded-MCP behavior, `mcp_disagreement` signal capability** as first-class criteria. MCP-only cannot produce disagreement signal → PG-06 silently degrades.
+**Cost if wrong (narrow criteria):** 02b may pick fast-but-wrong architecture; PG-06 becomes best-effort.
+**Cost if right (expanded):** may force local-index path → brings @xenova cold-start + HNSW sizing problems to MVP.
+
+## Gate Verdict
+
+**Not implementation-ready as-is.** Approval path: accept the 26 structural fixes + decide the 3 user challenges, then hand revised plan to Codex to apply. Re-ground Phase 02b before any Phase 03+ coding.
+
+## Next Step
+
+AskUserQuestion on the 3 user challenges → on approval, Codex applies 26 structural fixes to the phase docs + INVARIANTS + CONTRACTS → re-verify → close autoplan.

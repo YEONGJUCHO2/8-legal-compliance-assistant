@@ -1,0 +1,85 @@
+# Design Review — Consensus (Phase 2)
+
+Timestamp: 2026-04-15 22:00 KST | Phase: 2 of 4 | Via: /autoplan
+
+## Design Dual Voices — Consensus Table
+
+| # | Dimension | Claude | Codex | Consensus |
+|---|---|---|---|---|
+| 1 | Information hierarchy | 4/10 | 5/10 | **CONFIRMED — weak** (mobile hierarchy conflict, desktop manager rail missing) |
+| 2 | Missing states | 5/10 | 6/10 | **CONFIRMED** (`schema_error` invisible; UF-06/07/08/09 demoted but Phase 9 depends on them) |
+| 3 | User journey / emotional arc | 5/10 | 4/10 | **CONFIRMED** (전문가 검토 요청 post-click flow missing; onboarding declared but not specified) |
+| 4 | Specificity | 2/10 | 3/10 | **CONFIRMED — scope list, not design spec** (no tokens, no copy, no component anatomy) |
+| 5 | Mobile-first intake | 3/10 | 4/10 | **CONFIRMED** (360x800 named but IME, thumb zones, safe area, sticky submit unspecified) |
+| 6 | Trust surface | 6/10 | 4/10 | **CONFIRMED** (no_match/검증 지연 card precedence missing; citation card anatomy thin) |
+| 7 | Post-MVP relegation | 3/10 | 2/10 | **CONFIRMED — split is wrong** (UF-02/09/18/24/25 all load-bearing for first-run trust) |
+
+**Result: 7/7 CONFIRMED by both voices. Zero disagreements on severity.**
+
+## Top 3 Critical Findings (both voices converge)
+
+### 1. INVARIANTS.md incoherently demotes load-bearing trust UX to Post-MVP
+Both models flag: `UF-02` (server-honored skip), `UF-09` (staged loading), `UF-18` (multi-law caps), `UF-24` (facts-first rendering), `UF-25` (reading-order guidance) are Post-MVP in INVARIANTS.md:97-165, but `plans/phase-09-ui.md:25-27, 33-40, 54-59` treats them as required. Contradiction.
+
+**Why it matters:** `UF-24` facts-first is the trust differentiator that separates this product from ChatGPT. `UF-02` skip semantics prevent bureaucratic interrogation for field users. Shipping MVP without these lands a ChatGPT-shaped product that the design doc was explicitly written to reject.
+
+### 2. phase-09 is a scope list, not a design spec
+59 lines naming surfaces; zero typography tokens, zero spacing scale, zero wireframes, zero approved Korean microcopy, zero citation card anatomy, zero IME/keyboard-open behavior spec. The triage packet card — the product's whole artifact — gets one paragraph.
+
+**Why it matters:** Phase 9 hands implementation a blank canvas. The result will be "technically meeting requirements" with zero of the trust pixel-craft the design doc demands.
+
+### 3. `전문가 검토 요청` escalation flow + onboarding are declared but not specified
+Button is "first-class" but the entire post-click chain (redaction review → recipient picker → PDF send → confirmation → post-send status) is a bullet. Onboarding is in Scope (phase-09:12-14) but has no Step. Design doc lines 67-85, 259-307 spell both out.
+
+**Why it matters:** Escalation IS the product's monetization signal and Gate 2's success criterion. Onboarding is where UF-01 (safe no-match phrasing teaching) and capability limits are communicated. Both missing = MVP can't validate the wedge.
+
+## Additional Findings (structural, auto-decidable)
+
+- Missing `schema_error` UI state in phase-09 Step 4 despite `SchemaErrorOutput` contract (phase-09:25, 36, 50)
+- Missing desktop manager review header / packet summary rail for second-persona (phase-09:38-44)
+- Missing mobile viewport tests for multi-law, verification-pending, clarify/skip states (phase-09 Step 9 only has single-law happy path)
+- Missing citation card anatomy: excerpt length, source sentence, 시행일 배지 placement, changed-law badge treatment
+- Missing IME-open layout, sticky submit, safe-area padding, 44x44 tap targets, textarea growth rules
+- Missing approved Korean microcopy table: `no_match`, `검증 지연`, mismatch confirmation, export warnings
+
+## Auto-Decision Classification
+
+### Structural (auto-fix at Phase 2 deliverable — add to phase-09)
+- schema_error UI state card
+- Desktop packet summary rail spec
+- Additional mobile viewport tests (multi-law, verification-pending, clarify)
+- Citation card anatomy subspec
+- IME/keyboard-open layout rules
+- Design tokens + spacing scale appendix
+- Korean microcopy table
+- Onboarding + service-update implementation step
+- `전문가 검토 요청` post-click flow subspec (redaction → recipient → send → confirmation)
+
+### USER CHALLENGE #1 — surface at Phase 4 gate
+**You said:** "INVARIANTS.md split into 11 PG + 8 UF MVP-Blocking, rest (18 UF) Post-MVP Quality Bar" (CEO phase revision #6)
+
+**Both models recommend:** Promote `UF-02`, `UF-09`, `UF-18`, `UF-24`, `UF-25` back to MVP-Blocking → new split is 11 PG + 13 UF MVP-Blocking, 13 UF Post-MVP.
+
+**Why (both models):** All five are first-run trust load-bearing. UF-24 facts-first is the ChatGPT-differentiator. UF-02 skip prevents field-user churn. Phase 9 already depends on all five, making the current split contradictory.
+
+**What we might be missing:** You wanted a minimal MVP scope to ship the wedge faster. Promoting 5 UFs back extends Phase 9 scope by ~1 week CC effort.
+
+**If we're wrong, cost:** MVP ships faster but with ChatGPT-shape trust debt. Gate 2 (time-to-escalation reduction) may fail because users don't trust facts-first-absent answers.
+
+### USER CHALLENGE #2 — surface at Phase 4 gate
+**You said:** Mobile 360x800 one-screen path = `question → 결론 → first citation preview` (CEO phase revision #7)
+
+**Both models recommend:** Two explicit viewport templates — single-law and multi-law — each with facts-first card order matching design doc:172-192, not conclusion-first.
+
+**Why:** Design doc explicitly rejects conclusion-first as "the ChatGPT trap." Multi-law case needs 답변 범위/미답변 범위 banner in the first screen; current mobile spec has no slot for it.
+
+**What we might be missing:** Facts-first + 결론 + citation in one 800px scroll (with IME closed) may not fit, forcing a 2-scroll mobile first screen.
+
+**If we're wrong, cost:** Mobile first-screen compliance test becomes harder to pass. Possible compromise: collapsed verified-facts chip that expands on tap, keeping 결론 visible.
+
+## Phase 2 Completion Summary
+
+- **Status:** CONFIRMED, 7/7 dimensions.
+- **Dual voices:** both available, sequential execution (Claude subagent → Codex).
+- **Decisions:** 9 structural auto-fixes (deferred to phase-09 edit at gate), 2 user challenges (surface at Phase 4 gate).
+- **Mockup generation:** skipped (auto-decide, P3 pragmatic — mockups on 10 phase docs add no value; only phase-09 has UI and it is wireframe-level, not component-level).

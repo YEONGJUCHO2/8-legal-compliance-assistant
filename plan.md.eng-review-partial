@@ -1,0 +1,44 @@
+# Eng Review — Partial (Phase 3, Claude subagent only)
+
+Timestamp: 2026-04-15 ~21:55 KST | Phase: 3 of 4 | Status: **Codex voice pending**
+
+## Claude Eng Subagent — Scores
+
+| # | Dimension | Score |
+|---|---|---|
+| 1 | Architecture soundness | 6/10 |
+| 2 | Test coverage | 5/10 |
+| 3 | Performance risks | 5/10 |
+| 4 | Security threats | 4/10 |
+| 5 | Error paths / edge cases | 5/10 |
+| 6 | Deployment / operational | 5/10 |
+
+## Top 3 Critical Findings (Claude subagent)
+
+1. **Prompt-injection via law corpus text is unaddressed.** DRF content from `open.law.go.kr` (appendix footnotes, amendment reasons) flows straight into Anthropic prompts with no defense, eval, or invariant. PG-03 schema retry does not block this — injection can produce schema-valid but hijacked answers. Fix: add prompt-injection boundary in Phase 05 Step 5 (fence + role separation) + red-team eval in Phase 10.
+
+2. **EngineAdapter leaks Codex-shaped `sessionId` into Anthropic's stateless model.** PG-09 says "otherwise server-managed" but Phase 02 schema has no engine-session table and Phase 05 Step 7 handwaves "persist enough server-managed state." Result: cross-user context leaks or no-op continuity at MVP. Fix: Phase 02 add `engine_sessions` table; Phase 05 Step 7 map `sessionId` to replayable server-owned conversation store.
+
+3. **MCP verification sits on critical user path with no parallelism or total budget.** Phase 06 Step 3 will serial-verify N citations against network service with no SLO. Combined with Vercel 10s/60s timeout = outage on 5+ citation answers. Fix: Phase 06 Step 3 specify parallel fan-out (concurrency cap 4–6) + overall budget leading to `verification_pending`.
+
+## Additional High-Severity Findings
+
+- **Phase 02b bake-off criteria miss "can strategy produce mcp_disagreement signal?"** MCP-only cannot — weakens PG-06 silently. Add as first-class criterion.
+- **Phase 04 retrieval output envelope unpinned in CONTRACTS.md** — strategies will leak shape differences into Phase 07.
+- **No regression test for PG-08 rerun ignoring stale client date.** Silent data corruption path with no guard.
+- **UF-16 deterministic date parser has no dedicated eval suite** for Korean forms (`2024년 3월`, `지난달`, `사고 당시`, mixed strings).
+- **Magic-link token hygiene under-specified** in Phase 08 Step 2: no entropy, single-use, expiry window, rate limit, or replay protection enumerated.
+- **PG-10 identity-merge attack surface** not blocked: attacker creates magic-link with victim's email, victim links SSO onto attacker's `app_users.id`. Fix before OAuth ships.
+- **Embedding-model version pinning absent.** Pin commit SHA + store `embedding_model_version` per row, refuse retrieval on mismatch.
+- **Future reference-date unhandled.** `AskRequestSchema` regex allows `3024-01-01`; should cap at today.
+- **Repealed-then-reinstated article** breaks single `repealed_at` field — must map onto existing `ArticleVersionRow` with new version.
+- **Vercel function timeout vs MCP budget** interaction not declared. Phase 01/10 must pin deployment runtime (Node/Edge/long-running).
+- **@xenova/transformers cold-start** (~280MB weights) on serverless = 5-20s warm-up fatal for query path. Phase 02b must benchmark this if local-index wins.
+
+## Claude Verdict
+**Not yet implementation-ready.** Three gaps (prompt injection, engine-session storage, MCP concurrency/budget) need contract or phase-level fixes before coding Phase 05–07. Four security items (magic-link hygiene, identity-merge attack model, embedding-model pinning, future-date bounds) need one-line fixes cheap now / expensive later.
+
+## Status
+- Codex eng voice (task `bur5y5wrl`) was mid-run when session context filled.
+- Output at `/tmp/codex-eng-out.txt`.
+- Next session: read Codex output, build eng consensus table, assess cross-phase themes (design + eng both converge on relegation/specificity problems), then Phase 4 Final Gate.

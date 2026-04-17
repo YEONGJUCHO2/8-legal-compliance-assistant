@@ -1,0 +1,98 @@
+# Eng Review — Consensus (Phase 3)
+
+Timestamp: 2026-04-15 ~22:15 KST | Phase: 3 of 4 | Via: /autoplan
+
+## Dual Voices — Consensus Table
+
+| # | Dimension | Claude | Codex | Consensus |
+|---|---|---|---|---|
+| 1 | Architecture soundness | 6/10 | 4/10 | **CONFIRMED — weak** (EngineAdapter sessionId contract not real; retrieval→orchestration contract leaks) |
+| 2 | Test coverage | 5/10 | 3/10 | **CONFIRMED — thin** (PG-09/10/11 barely tested; UF-16/17 parser eval missing; schema-retry exhaustion untested) |
+| 3 | Performance risks | 5/10 | 4/10 | **CONFIRMED** (MCP serial on critical path, no latency budget, cold-start unmeasured, N+1 verification) |
+| 4 | Security threats | 4/10 | 3/10 | **CONFIRMED — critical** (prompt injection, magic-link hygiene, PG-09 replay) |
+| 5 | Error paths / edge cases | 5/10 | 3/10 | **CONFIRMED** (rerun not fail-closed, repeal/reinstate model naive, idempotency drift undefined) |
+| 6 | Deployment / operational | 5/10 | 4/10 | **CONFIRMED** (phase-02 pgvector before 02b decides; embedding pin absent; obs too coarse) |
+
+**Result: 6/6 dimensions CONFIRMED. Both verdicts: not implementation-ready.**
+
+## Top 3 Critical Findings (both voices converge)
+
+### 1. EngineAdapter `sessionId` contract is not real for Anthropic
+Both voices flag: `CONTRACTS.md:17-26`, `plan.md:20-24`, `plans/phase-05-engine-adapter.md:38-45` mandate a universal `sessionId` but Anthropic is stateless. Phase 02 schema has no `engine_sessions` table. "Server-managed conversation state" is prose, not a contract.
+
+**Why it matters:** Without an app-owned, user-bound engine-session handle, either continuity silently no-ops at MVP or — worse — a client-exposed handle enables PG-09 cross-user replay.
+
+**Fix before Phase 05 coding:** Phase 02 adds `engine_sessions(id, user_id, provider, handle, created_at, expires_at)`. Phase 05 Step 7 maps adapter `sessionId` to server-only handle with user binding + replay/isolation fuzz tests.
+
+### 2. Prompt injection via law corpus text is entirely unmodeled
+Both voices flag: Phase 3 ingests raw DRF (`plans/phase-03-law-ingestion.md:45-62`) → Phase 5 feeds citations into prompts (`plans/phase-05-engine-adapter.md:34-45`). Appendix footnotes, amendment reasons, and malformed HTML pass straight through. Nowhere does the plan say "retrieved corpus text is inert data."
+
+**Why it matters:** Schema retry (PG-03) does not block injection; attacker can publish schema-valid but hijacked answers. Legal domain makes this catastrophic — a confident, citation-shaped wrong answer is the exact failure mode the product promises to prevent.
+
+**Fix before Phase 05 coding:** Phase 03 Step N: strip unsafe markup, define allowed-text invariants. Phase 05 Step 5: delimiter-fence and role-separate quoted citations. Phase 10 eval: malicious-corpus red-team fixtures.
+
+### 3. Rerun + MCP freshness contract is not fail-closed; critical path has no budget
+Voices converge from two angles:
+- **Codex:** rerun path (`INVARIANTS.md:42-45`) demands current-law answers, but `plans/phase-06-mcp-verification.md:38-39` + `plans/phase-07-clarification-orchestration.md:43-44` never forbid emitting a fresh conclusion when MCP is down → stale-answer risk violating PG-06/PG-08.
+- **Claude:** MCP verification is serial with no concurrency cap or total budget → 5+ citation answers will exceed Vercel function timeout → outage.
+
+**Fix before Phase 06/07 coding:** (a) Rerun must fail-closed to `verification_pending` when MCP freshness unproven. (b) Phase 06 Step 3 specifies parallel fan-out (concurrency 4–6) + overall deadline → downgrade to `verification_pending` before platform timeout.
+
+## Additional High-Severity Findings (both voices)
+
+- **Phase 02b bake-off criteria incomplete** — no correctness threshold, degraded-MCP success, cold-start measurement, context-window pressure, or `mcp_disagreement` signal-capability gate. *(both)*
+- **Retrieval→orchestration contract leakage** — Phase 4 says "strategy-agnostic" but Phase 7 uses strategy-native confidence → define internal `RetrievalResult` interface. *(both)*
+- **Magic-link token hygiene under-specified** — no single-use, TTL, consumed-at, CSRF binding, or PG-10 identity-merge conflict flow. *(both)*
+- **PG-11 backpressure** has metrics but no load/regression proof of 503 over-cap. *(Codex)*
+- **PG-09/10 adversarial fuzzing absent** — no cross-user replay, provider migration collision, or identity-link matrix tests. *(Codex)*
+- **UF-16/17 date-parser eval missing** for Korean forms. *(both)*
+- **Embedding model pinning absent** — no commit SHA, tokenizer checksum, per-row `embedding_model_version`, preview/prod parity check. *(both)*
+- **Phase 02 pgvector migration baked in before Phase 02b decides** — split base schema from optional vector migration. *(Codex)*
+- **Repealed-then-reinstated + future-effective articles** — no temporal selection rule in `ArticleVersionRow`. *(both)*
+- **Idempotency key drift** — same `client_request_id` with different payload is undefined; reject on reuse. *(Codex)*
+- **Observability too coarse** — per-law disagreement, per-stage budget burn, verification concurrency saturation missing. *(both)*
+- **Future reference-date unbounded** — `AskRequestSchema` regex allows `3024-01-01`. *(Claude)*
+- **@xenova/transformers cold-start (~280MB)** on serverless = 5–20s warm-up; must benchmark in 02b. *(Claude)*
+- **Vercel runtime not pinned** (Node/Edge/long-running) — Phase 01/10 must declare. *(Claude)*
+
+## Auto-Decision Classification
+
+### Structural (auto-fix at Phase 4 gate, before coding Phase 05+)
+
+1. `engine_sessions` table in Phase 02
+2. Phase 05 Step 7: server-only session handle mapping + user binding
+3. Phase 03: corpus sanitization step + allowed-text invariant
+4. Phase 05 Step 5: citation fencing + role separation in prompts
+5. Phase 06 Step 3: parallel fan-out (cap 4–6) + overall budget → downgrade
+6. Phase 07: rerun fail-closed to `verification_pending` when MCP unverifiable
+7. Phase 02b: add correctness threshold, cold-start, degraded-MCP, mcp_disagreement signal-capability gates
+8. Phase 04: internal `RetrievalResult` interface (non-CONTRACTS.md)
+9. Phase 08 Step 2: magic-link token lifecycle spec (TTL, single-use, consumed-at, CSRF, PG-10 conflict flow)
+10. Phase 02: split base schema from pgvector/HNSW migration (run only if 02b selects local index)
+11. Phase 10 + Phase 03: embedding model pin (SHA + tokenizer checksum) + `embedding_model_version` per row + refuse on mismatch
+12. Phase 03 + CONTRACTS: repeal-gap + reinstatement + future-effective temporal selection rules
+13. Phase 05/07: idempotency-key payload-drift rejection
+14. Phase 10: per-law disagreement + per-stage budget burn + verification concurrency metrics
+15. `AskRequestSchema`: cap `reference_date` ≤ today
+16. Phase 01/10: pin Vercel runtime (Node/Edge/long-running) + MCP budget reconciliation
+17. Phase 10: regression suites — PG-11 load test, PG-09/10 fuzz matrix, UF-16/17 parser eval, schema-retry exhaustion, verification parallelism, malicious-corpus red-team
+
+### USER CHALLENGE #3 — surface at Phase 4 gate
+**Plan says:** Phase 02b bake-off decides retrieval architecture (MCP-only vs targeted-cache vs full pgvector) within 1 week.
+
+**Both eng voices recommend:** Bake-off criteria must include (a) retrieval accuracy threshold, (b) cold-start cost on serverless, (c) behavior under degraded MCP, (d) ability to emit `mcp_disagreement` signal (PG-06). MCP-only cannot produce disagreement signal by construction → weakens core product promise.
+
+**Why:** Current criteria (latency/cost/freshness) could select a fast-but-wrong architecture. If 02b picks MCP-only, PG-06 quietly degrades from "signal" to "best-effort."
+
+**What you might be missing:** Expanded criteria may force local-index path, which brings the @xenova cold-start + HNSW sizing problems.
+
+**If we're wrong, cost:** Shipped MVP cannot detect MCP-vs-training disagreement → lawyers lose trust when they spot a drift the system missed.
+
+## Eng Verdict
+**Not yet implementation-ready.** Both voices agree. 17 structural fixes + 1 user challenge must land before Phase 05 coding. Without them the product ships with three catastrophic failure modes (session replay, prompt injection, stale legal answer) hidden behind schema-valid output.
+
+## Phase 3 Completion Summary
+- **Status:** CONFIRMED, 6/6 dimensions.
+- **Dual voices:** both completed sequentially (Claude Agent subagent → Codex CLI `bur5y5wrl`).
+- **Decisions:** 17 structural auto-fixes (apply at gate), 1 new user challenge (02b criteria).
+- **Phase 3.5 DX:** SKIP — product is end-user legal compliance tool, no DX scope.

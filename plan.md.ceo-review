@@ -1,0 +1,48 @@
+# CEO Review — Consensus
+
+Timestamp: 2026-04-15 | Commit: d1ce293 | Phase: 1 of 4
+
+## Dual Voices Consensus Table
+
+| # | Dimension | Codex | Claude subagent | Consensus |
+|---|---|---|---|---|
+| 1 | Wedge/scope right? | ✗ critical (전체 법령 too broad) | ✗ high (lawyer-grade to non-lawyers) | **CONFIRMED — wrong wedge** |
+| 2 | Right problem framed? | ✗ critical (should be triage+escalation) | ✗ high (target user squishy) | **CONFIRMED — reframe** |
+| 3 | Architecture justified? | ✗ critical (local index+MCP unproven) | ✗ high (MCP-only never evaluated) | **CONFIRMED — bake-off first** |
+| 4 | Authority model coherent? | ✗ high (statute-only gap) | — (not raised) | Codex-only finding |
+| 5 | Competitive moat survives model vendors? | ✗ high | ✗ high (Anthropic/OpenAI native) | **CONFIRMED** |
+| 6 | Codex daemon as MVP sound? | ✗ high (brittle, not agnostic) | ✗ critical (not production-viable) | **CONFIRMED — flip default** |
+| 7 | Magic-link auth right for B2B? | ✗ high | ✗ medium | **CONFIRMED — pain, not blocker** |
+| 8 | Desktop-first matches users? | ✗ high (field=mobile) | ✗ high | **CONFIRMED — mobile-first wedge** |
+| 9 | Scope realistic as MVP? | ✗ medium (trust theater) | ✗ critical (6-month, not MVP) | **CONFIRMED — strip 60%** |
+| 10 | 6-month regret story? | ✗ critical (gate 1/2/3 missing) | ✗ critical (no user-facing eval) | **CONFIRMED — add stage gates** |
+
+**Result: 9/10 CONFIRMED by both voices. Zero disagreements. The plan has systemic strategic problems, not isolated ones.**
+
+## Premises Both Voices Challenge
+
+These are assumptions baked into the plan that both reviewers flagged as likely wrong:
+
+- **P1. "All Korean law" is the MVP corpus.** Both say: vertical slice (산안법/중처법/도급 cluster) only.
+- **P2. "Better answers" is the product.** Both say: the product is triage + expert escalation packet, answer is a component.
+- **P3. "Local index + runtime MCP verify" is the right retrieval architecture.** Both say: try MCP-only first, prove it doesn't scale before paying indexing cost.
+- **P4. "Codex CLI daemon" is a viable MVP engine.** Both say: ship with real API (Anthropic/OpenAI), demote Codex to stub or drop.
+- **P5. "Desktop-first" fits the user.** Both say: field users ask from phones. Mobile-first intake, desktop as review surface.
+- **P6. "Magic-link auth" is enough for MVP.** Both say: B2B buyers want SSO day one; keep magic-link as fallback.
+- **P7. "26 UI failure contracts" are MVP requirements.** Both say: 60% of UF-* are post-MVP polish.
+- **P8. "Phase checkboxes" prove readiness.** Both say: no user-facing correctness eval exists. Need 50-200 gold Q/A pairs graded by a real Korean compliance lawyer.
+
+## Top Actions (Ranked Both-Voices)
+
+1. **Kill Codex-daemon-as-MVP.** Ship with Anthropic API; keep adapter for future swap. (CRITICAL)
+2. **Pick a vertical wedge.** 산안법 + 중처법 + 도급 cluster. Kill nationwide coverage as MVP. (CRITICAL)
+3. **Reframe product as triage/escalation.** Primary artifact = expert-ready packet. Answer is a component. (CRITICAL)
+4. **Prototype MCP-only retrieval for one week** before committing to Phase 3 dual-source architecture. (CRITICAL)
+5. **Commit to user-facing eval gate.** 50+ gold Q/A pairs graded by real compliance lawyer before Phase 7 done. (CRITICAL)
+6. **Demote 60% of UF-* invariants to post-MVP.** Identify the MVP-blocking set. (HIGH)
+7. **Swap desktop-first for mobile-first intake, desktop-review.** (HIGH)
+8. **Add SSO alongside magic-link, or drop magic-link for SSO-first pilot motion.** (MEDIUM-HIGH)
+
+## PG-01 Status: GATE
+
+Next step: user must confirm or override these premise challenges before Phase 2 proceeds.
