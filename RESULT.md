@@ -76,3 +76,13 @@
 - idempotency TTL 정책: lookup 시 만료 체크로 null 반환, `sweep()`는 만료 row opportunistic delete만 수행하고 백그라운드 청소는 후속
 - 검증: `npm run lint` 통과, `npm test` => `159 passed, 1 skipped`, `npm run build` 통과, `npm run typecheck` 통과, 신규 단위 테스트 7개 + migration 검증 갱신
 - 후속: `assistant_runs`의 legacy 컬럼(`payload_hash`, `verification_state` 등)은 기본값만 유지하고 새 PG history 경로에서는 읽지 않습니다.
+
+## SMTP 실연동
+- 상태: 성공
+- 선택한 구현: 순수 SMTP — 새 의존성 없이 `node:net`/`node:tls`로 SMTP, STARTTLS, AUTH(PAIN/LOGIN) 경로를 직접 처리했습니다.
+- TLS 정책: `smtps://` 및 `:465`는 즉시 TLS, `:587`은 STARTTLS 강제, `:25`는 plain SMTP로 처리합니다.
+- 신규 파일: `src/lib/auth/email-smtp.ts`, `tests/unit/auth/email-smtp.test.ts`
+- 수정 파일: `src/lib/{assistant/deps.ts,auth/email.ts,auth/types.ts}`, `src/app/api/auth/request/route.ts`, `tests/{integration/api-auth-request-route.test.ts,unit/assistant/deps.production.test.ts}`
+- 와이어링: `deps.ts`에 `mailer`를 추가해 dev/test는 console, production은 `SMTP_URL`+`AUTH_FROM_EMAIL` 없으면 fail-closed 후 SMTP mailer를 주입했고 `/api/auth/request`가 이를 넘기도록 연결했습니다.
+- 검증: `npm run lint` 통과, `npm test` => `164 passed, 1 skipped`, `npm run build` 통과, `npm run typecheck` 통과, 신규 테스트 5개 추가
+- 주의: SMTP 경로에는 magicUrl 원문 로그를 추가하지 않았고, 기존 console preview만 redacted 출력을 유지합니다.

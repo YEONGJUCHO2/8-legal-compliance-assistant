@@ -10,6 +10,8 @@ const productionEnv = {
   APP_BASE_URL: "http://127.0.0.1:3000",
   AUTH_SECRET: "a".repeat(32),
   AUTH_MAGIC_LINK_TTL_MINUTES: "15",
+  AUTH_FROM_EMAIL: "legal@example.com",
+  SMTP_URL: "smtp://mail.example.com:25",
   RETRIEVAL_DEADLINE_MS: "500",
   ENGINE_DEADLINE_MS: "1000",
   MCP_VERIFY_DEADLINE_MS: "1200",
@@ -37,7 +39,26 @@ describe("assistant deps production wiring", () => {
 
     expect("db" in deps.authStore).toBe(true);
     expect("db" in (deps.serviceUpdateStore ?? {})).toBe(true);
+    expect(typeof deps.mailer?.send).toBe("function");
     expect(deps.engine.provider).toBe("anthropic");
     expect(typeof deps.storage.findArticlesByLexical).toBe("function");
+  });
+
+  test("fails closed in production when SMTP_URL is missing", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+
+    for (const [key, value] of Object.entries({
+      ...productionEnv,
+      SMTP_URL: undefined
+    })) {
+      vi.stubEnv(key, value);
+    }
+
+    const { getAssistantDeps, resetAssistantDepsForTesting, RuntimeConfigurationError } = await import("@/lib/assistant/deps");
+
+    resetAssistantDepsForTesting();
+
+    expect(() => getAssistantDeps()).toThrowError(RuntimeConfigurationError);
+    expect(() => getAssistantDeps()).toThrowError(/smtp_runtime_not_configured/);
   });
 });

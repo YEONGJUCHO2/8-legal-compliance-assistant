@@ -1,4 +1,6 @@
 import { createInMemoryAuthStore } from "@/lib/auth/in-memory-store";
+import { createConsoleMailer, type MagicLinkMailer } from "@/lib/auth/email";
+import { createSmtpMailer } from "@/lib/auth/email-smtp";
 import { createPgAuthStore } from "@/lib/auth/pg-store";
 import type { AuthStore } from "@/lib/auth/types";
 import { createEngineAdapter } from "@/lib/assistant/engine";
@@ -33,6 +35,7 @@ export interface AssistantDeps {
   retrieveFn: typeof retrieve;
   engine: EngineAdapter;
   mcp: KoreanLawMcpClient;
+  mailer?: MagicLinkMailer;
   historyStore: HistoryStore;
   idempotencyStore: IdempotencyStore;
   engineSessionStore?: EngineSessionStore;
@@ -108,6 +111,7 @@ function createDefaultDeps(): AssistantDeps {
               };
             }
           },
+    mailer: createConsoleMailer(),
     historyStore: createInMemoryHistoryStore(),
     idempotencyStore: createInMemoryIdempotencyStore(),
     logger: createLogger(),
@@ -125,6 +129,10 @@ function createProductionDeps(): AssistantDeps {
     const rateLimitCapacity = 20;
     const rateLimitRefillPerSec = 10 / 60;
 
+    if (!env.SMTP_URL || !env.AUTH_FROM_EMAIL) {
+      throw new RuntimeConfigurationError("smtp_runtime_not_configured");
+    }
+
     return {
       authStore: createPgAuthStore(),
       storage: createDbLawStorage(),
@@ -132,6 +140,11 @@ function createProductionDeps(): AssistantDeps {
       engine: createEngineAdapter(env),
       mcp: createKoreanLawMcpClient({
         baseUrl: env.KOREAN_LAW_MCP_URL
+      }),
+      mailer: createSmtpMailer({
+        smtpUrl: env.SMTP_URL,
+        fromEmail: env.AUTH_FROM_EMAIL,
+        appBaseUrl: env.APP_BASE_URL
       }),
       historyStore: createPgHistoryStore(),
       idempotencyStore: createPgIdempotencyStore(),

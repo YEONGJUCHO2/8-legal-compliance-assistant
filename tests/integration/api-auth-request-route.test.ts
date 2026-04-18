@@ -3,7 +3,8 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 
 import { POST } from "@/app/api/auth/request/route";
-import { resetAssistantDepsForTesting } from "@/lib/assistant/deps";
+import { getAssistantDeps, resetAssistantDepsForTesting, setAssistantDepsForTesting } from "@/lib/assistant/deps";
+import { createInMemoryAuthStore } from "@/lib/auth/in-memory-store";
 
 const staticRouteContext = {
   params: Promise.resolve({})
@@ -55,5 +56,43 @@ describe("/api/auth/request route", () => {
     expect(response.status).toBe(200);
     expect(body.ok).toBe(true);
     expect(body.expiresAt).toEqual(expect.any(String));
+  });
+
+  test("uses the injected deps mailer for auth request delivery", async () => {
+    const send = vi.fn(async () => {});
+    const deps = getAssistantDeps();
+
+    setAssistantDepsForTesting({
+      ...deps,
+      authStore: createInMemoryAuthStore(),
+      mailer: {
+        send
+      }
+    });
+
+    const response = await POST(
+      new Request("https://example.test/api/auth/request", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json"
+        },
+        body: JSON.stringify({
+          email: "user@example.com"
+        })
+      }),
+      staticRouteContext
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.ok).toBe(true);
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: "user@example.com",
+        expiresAt: expect.any(String),
+        magicUrl: expect.stringContaining("/login?token=")
+      })
+    );
   });
 });

@@ -65,6 +65,7 @@ export type PgAuthStore = AuthStore & {
 
 export type AuthErrorCode =
   | "too_many_requests"
+  | "email_delivery_failed"
   | "token_not_found"
   | "token_already_used"
   | "token_expired"

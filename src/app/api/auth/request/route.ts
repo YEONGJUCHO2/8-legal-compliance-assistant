@@ -60,6 +60,7 @@ const postHandler = withRequestLogging<StaticRouteContext>(async (request, logge
       userAgent,
       now,
       appBaseUrl,
+      mailer: deps.mailer,
       rateLimitStore: deps.rateLimitStore
     });
 

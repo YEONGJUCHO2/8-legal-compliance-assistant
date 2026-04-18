@@ -6,7 +6,7 @@ export interface MagicLinkMailer {
   }): Promise<void>;
 }
 
-function redactMagicLinkUrl(magicUrl: string) {
+export function redactMagicLinkUrl(magicUrl: string) {
   try {
     const url = new URL(magicUrl);
 
