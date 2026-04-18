@@ -32,13 +32,19 @@ const citationRows: QuestionHistoryCitationRow[] = [
   {
     id: 1,
     run_id: runRow.id,
+    law_id: "law-uuid-1",
     article_id: "f34c78ab-c6c1-48ce-a642-ed8211e66778",
     article_version_id: "ver-1",
     quote: "제10조 본문",
+    law_title: "산업안전보건법",
+    article_number: "제10조",
     position: 0,
     verified_at_mcp: "2026-04-18T00:00:01.000Z",
     verification_source: "mcp",
+    in_force_at_query_date: false,
+    rendered_from_verification: false,
     mcp_disagreement: false,
+    answer_strength_downgrade: "verification_pending",
     latest_article_version_id: null,
     changed_summary: null,
     changed_at: null
@@ -52,19 +58,20 @@ const answerResponse: AskResponse = {
   strength: "clear",
   citations: [
     {
-      law_id: null,
+      law_id: citationRows[0].law_id,
       article_id: citationRows[0].article_id,
       article_version_id: citationRows[0].article_version_id,
       text: citationRows[0].quote,
       quote: citationRows[0].quote,
-      law_title: "",
-      article_number: "",
+      law_title: citationRows[0].law_title,
+      article_number: citationRows[0].article_number,
       mcp_verified: true,
       verified_at: citationRows[0].verified_at_mcp,
-      in_force_at_query_date: true,
+      in_force_at_query_date: citationRows[0].in_force_at_query_date,
       verification_source: "mcp",
-      rendered_from_verification: true,
+      rendered_from_verification: citationRows[0].rendered_from_verification,
       mcp_disagreement: false,
+      answer_strength_downgrade: "verification_pending",
       latest_article_version_id: null,
       changed_summary: null
     }
@@ -108,9 +115,10 @@ describe("history-store-pg", () => {
       (query, params) => {
         expect(query).toContain("INSERT INTO assistant_run_citations");
         expect(params[0]).toBe(runRow.id);
-        expect(params[1]).toBe(citationRows[0].article_id);
-        expect(params[2]).toBe(citationRows[0].article_version_id);
-        expect(params[3]).toBe(citationRows[0].quote);
+        expect(params[1]).toBe(citationRows[0].law_id);
+        expect(params[2]).toBe(citationRows[0].article_id);
+        expect(params[3]).toBe(citationRows[0].article_version_id);
+        expect(params[4]).toBe(citationRows[0].quote);
         return [];
       },
       (query, params) => {
@@ -128,13 +136,19 @@ describe("history-store-pg", () => {
       () => [buildRunDbRow(runRow)],
       () => [
         {
+          law_id: citationRows[0].law_id,
           article_id: citationRows[0].article_id,
           article_version_id: citationRows[0].article_version_id,
           cited_as: citationRows[0].quote,
+          law_title: citationRows[0].law_title,
+          article_number: citationRows[0].article_number,
           position: citationRows[0].position,
           verified_at: citationRows[0].verified_at_mcp,
           verification_source: citationRows[0].verification_source,
+          in_force_at_query_date: citationRows[0].in_force_at_query_date,
+          rendered_from_verification: citationRows[0].rendered_from_verification,
           mcp_disagreement: citationRows[0].mcp_disagreement,
+          answer_strength_downgrade: citationRows[0].answer_strength_downgrade,
           latest_article_version_id: citationRows[0].latest_article_version_id,
           changed_summary: citationRows[0].changed_summary,
           changed_at: citationRows[0].changed_at

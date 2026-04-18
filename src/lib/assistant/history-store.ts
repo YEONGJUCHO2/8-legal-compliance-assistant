@@ -27,19 +27,20 @@ type StoredSnapshot = {
 
 function mapPersistedCitation(row: QuestionHistoryCitationRow): Citation {
   return {
-    law_id: null,
+    law_id: row.law_id,
     article_id: row.article_id,
     article_version_id: row.article_version_id,
     text: row.quote,
     quote: row.quote,
-    law_title: "",
-    article_number: "",
+    law_title: row.law_title,
+    article_number: row.article_number,
     mcp_verified: row.verified_at_mcp !== null,
     verified_at: row.verified_at_mcp,
-    in_force_at_query_date: true,
+    in_force_at_query_date: row.in_force_at_query_date,
     verification_source: row.verification_source,
-    rendered_from_verification: row.verification_source === "mcp",
+    rendered_from_verification: row.rendered_from_verification,
     mcp_disagreement: row.mcp_disagreement,
+    answer_strength_downgrade: row.answer_strength_downgrade ?? undefined,
     latest_article_version_id: row.latest_article_version_id,
     changed_summary: row.changed_summary
   };

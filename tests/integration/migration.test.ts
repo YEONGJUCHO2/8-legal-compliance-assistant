@@ -106,10 +106,16 @@ test("base migrations apply idempotently on a clean database", async ({ skip }) 
       WHERE table_schema = ${schemaName}
         AND table_name = 'assistant_run_citations'
         AND column_name IN (
+          'law_id',
           'article_version_id',
+          'law_title',
+          'article_number',
           'position',
           'verification_source',
+          'in_force_at_query_date',
+          'rendered_from_verification',
           'mcp_disagreement',
+          'answer_strength_downgrade',
           'latest_article_version_id',
           'changed_summary',
           'changed_at'
@@ -119,11 +125,17 @@ test("base migrations apply idempotently on a clean database", async ({ skip }) 
 
     expect(citationColumns.map((row) => row.column_name)).toEqual([
       "article_version_id",
+      "article_number",
+      "answer_strength_downgrade",
       "changed_at",
       "changed_summary",
+      "in_force_at_query_date",
+      "law_id",
+      "law_title",
       "latest_article_version_id",
       "mcp_disagreement",
       "position",
+      "rendered_from_verification",
       "verification_source"
     ]);
 
@@ -134,7 +146,8 @@ test("base migrations apply idempotently on a clean database", async ({ skip }) 
     expect(migrationRows.map((row) => row.id)).toEqual([
       "001_base.sql",
       "003_postgres_concrete_wiring.sql",
-      "004_runtime_state.sql"
+      "004_runtime_state.sql",
+      "005_history_citation_denormalization.sql"
     ]);
   } catch (error) {
     skip(

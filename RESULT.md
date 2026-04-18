@@ -86,3 +86,11 @@
 - 와이어링: `deps.ts`에 `mailer`를 추가해 dev/test는 console, production은 `SMTP_URL`+`AUTH_FROM_EMAIL` 없으면 fail-closed 후 SMTP mailer를 주입했고 `/api/auth/request`가 이를 넘기도록 연결했습니다.
 - 검증: `npm run lint` 통과, `npm test` => `164 passed, 1 skipped`, `npm run build` 통과, `npm run typecheck` 통과, 신규 테스트 5개 추가
 - 주의: SMTP 경로에는 magicUrl 원문 로그를 추가하지 않았고, 기존 console preview만 redacted 출력을 유지합니다.
+
+## History Snapshot Denormalization 갭 제거
+- 상태: 성공
+- 변경 파일: `src/lib/{db/rows.ts,verify/persist.ts,assistant/history-store.ts,assistant/history-store-pg.ts}`, `db/migrations/005_history_citation_denormalization.sql`, `tests/{unit/verify/persist.test.ts,unit/assistant/history-store.test.ts,unit/history-store-pg.test.ts,unit/migrations.test.ts,integration/migration.test.ts}`
+- 신규 마이그레이션: `005_history_citation_denormalization.sql`
+- 타입 확장: `QuestionHistoryCitationRow`에 `law_id`, `law_title`, `article_number`, `in_force_at_query_date`, `answer_strength_downgrade`, `rendered_from_verification` 저장 필드를 추가했습니다.
+- 검증: `npm run lint` 통과, `npm test` => `166 passed, 1 skipped`, `npm run build` 통과, `npm run typecheck` 통과, 신규 테스트 2개 + 기존 테스트 4개 확장
+- 주의: `DEFAULT '' NOT NULL` 컬럼(`law_title`, `article_number`) 때문에 기존 row는 빈 문자열로 마이그레이션되고, denormalized 값은 신규 persist부터 채워집니다.

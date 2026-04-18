@@ -164,13 +164,19 @@ export interface FeedbackEventRow {
 export interface QuestionHistoryCitationRow {
   id: number;
   run_id: UUID;
+  law_id: UUID | null;
   article_id: UUID;
   article_version_id: UUID;
   quote: string;
+  law_title: string;
+  article_number: string;
   position: number;
   verified_at_mcp: ISODateTime | null;
   verification_source: "local" | "mcp";
+  in_force_at_query_date: boolean;
+  rendered_from_verification: boolean;
   mcp_disagreement: boolean;
+  answer_strength_downgrade: "conditional" | "verification_pending" | null;
   latest_article_version_id: UUID | null;
   changed_summary: string | null;
   changed_at: ISODateTime | null;

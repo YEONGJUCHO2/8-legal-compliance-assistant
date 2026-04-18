@@ -10,6 +10,7 @@ const baseMigrationPath = path.join(migrationsDir, "001_base.sql");
 const vectorMigrationPath = path.join(migrationsDir, "002_vector.sql");
 const concreteWiringMigrationPath = path.join(migrationsDir, "003_postgres_concrete_wiring.sql");
 const runtimeStateMigrationPath = path.join(migrationsDir, "004_runtime_state.sql");
+const historyCitationDenormMigrationPath = path.join(migrationsDir, "005_history_citation_denormalization.sql");
 
 async function readMigration(filename: string) {
   return readFile(path.join(migrationsDir, filename), "utf8");
@@ -89,10 +90,23 @@ describe("SQL migrations", () => {
     expect(sql).toMatch(/CREATE INDEX IF NOT EXISTS ix_idempotency_records_expires_at/i);
   });
 
+  test("005_history_citation_denormalization.sql stores frozen citation snapshot fields", async () => {
+    const sql = await readMigration("005_history_citation_denormalization.sql");
+
+    expect(sql).toMatch(/ALTER TABLE assistant_run_citations[\s\S]*ADD COLUMN IF NOT EXISTS law_id UUID/i);
+    expect(sql).toMatch(/ALTER TABLE assistant_run_citations[\s\S]*ADD COLUMN IF NOT EXISTS law_title TEXT NOT NULL DEFAULT ''/i);
+    expect(sql).toMatch(/ALTER TABLE assistant_run_citations[\s\S]*ADD COLUMN IF NOT EXISTS article_number TEXT NOT NULL DEFAULT ''/i);
+    expect(sql).toMatch(/ALTER TABLE assistant_run_citations[\s\S]*ADD COLUMN IF NOT EXISTS in_force_at_query_date BOOLEAN NOT NULL DEFAULT true/i);
+    expect(sql).toMatch(/ALTER TABLE assistant_run_citations[\s\S]*ADD COLUMN IF NOT EXISTS answer_strength_downgrade TEXT/i);
+    expect(sql).toMatch(/ALTER TABLE assistant_run_citations[\s\S]*ADD COLUMN IF NOT EXISTS rendered_from_verification BOOLEAN NOT NULL DEFAULT false/i);
+    expect(sql).toMatch(/assistant_run_citations_answer_strength_downgrade_check/i);
+  });
+
   test("migration files exist where the runner expects them", async () => {
     await expect(readFile(baseMigrationPath, "utf8")).resolves.toContain("app_users");
     await expect(readFile(vectorMigrationPath, "utf8")).resolves.toContain("vector");
     await expect(readFile(concreteWiringMigrationPath, "utf8")).resolves.toContain("redemption_attempts");
     await expect(readFile(runtimeStateMigrationPath, "utf8")).resolves.toContain("rate_limit_buckets");
+    await expect(readFile(historyCitationDenormMigrationPath, "utf8")).resolves.toContain("rendered_from_verification");
   });
 });

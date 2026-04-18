@@ -32,13 +32,19 @@ type RunDbRow = {
 };
 
 type CitationDbRow = {
+  law_id: string | null;
   article_id: string;
   article_version_id: string;
   cited_as: string;
+  law_title: string;
+  article_number: string;
   position: number;
   verified_at: string | Date | null;
   verification_source: "local" | "mcp";
+  in_force_at_query_date: boolean;
+  rendered_from_verification: boolean;
   mcp_disagreement: boolean;
+  answer_strength_downgrade: "conditional" | "verification_pending" | null;
   latest_article_version_id: string | null;
   changed_summary: string | null;
   changed_at: string | Date | null;
@@ -84,19 +90,20 @@ function mapCitationRow(row: CitationDbRow): Citation {
   const verifiedAt = toIsoDateTime(row.verified_at);
 
   return {
-    law_id: null,
+    law_id: row.law_id,
     article_id: row.article_id,
     article_version_id: row.article_version_id,
     text: row.cited_as,
     quote: row.cited_as,
-    law_title: "",
-    article_number: "",
+    law_title: row.law_title,
+    article_number: row.article_number,
     mcp_verified: verifiedAt !== null,
     verified_at: verifiedAt,
-    in_force_at_query_date: true,
+    in_force_at_query_date: row.in_force_at_query_date,
     verification_source: row.verification_source,
-    rendered_from_verification: row.verification_source === "mcp",
+    rendered_from_verification: row.rendered_from_verification,
     mcp_disagreement: row.mcp_disagreement,
+    answer_strength_downgrade: row.answer_strength_downgrade ?? undefined,
     latest_article_version_id: row.latest_article_version_id,
     changed_summary: row.changed_summary
   };
@@ -236,29 +243,41 @@ export function createPgHistoryStore(db: Sql = getDb()): HistoryStore {
             `
               INSERT INTO assistant_run_citations (
                 run_id,
+                law_id,
                 article_id,
                 article_version_id,
                 cited_as,
+                law_title,
+                article_number,
                 position,
                 verified_at,
                 verification_source,
+                in_force_at_query_date,
+                rendered_from_verification,
                 mcp_disagreement,
+                answer_strength_downgrade,
                 latest_article_version_id,
                 changed_summary,
                 changed_at
               ) VALUES (
-                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17
               )
             `,
             [
               row.run_id,
+              row.law_id,
               row.article_id,
               row.article_version_id,
               row.quote,
+              row.law_title,
+              row.article_number,
               row.position,
               row.verified_at_mcp,
               row.verification_source,
+              row.in_force_at_query_date,
+              row.rendered_from_verification,
               row.mcp_disagreement,
+              row.answer_strength_downgrade,
               row.latest_article_version_id,
               row.changed_summary,
               row.changed_at
@@ -282,13 +301,19 @@ export function createPgHistoryStore(db: Sql = getDb()): HistoryStore {
       const citationRows = await db.unsafe<CitationDbRow[]>(
         `
           SELECT
+            law_id,
             article_id,
             article_version_id,
             cited_as,
+            law_title,
+            article_number,
             position,
             verified_at,
             verification_source,
+            in_force_at_query_date,
+            rendered_from_verification,
             mcp_disagreement,
+            answer_strength_downgrade,
             latest_article_version_id,
             changed_summary,
             changed_at
