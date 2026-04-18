@@ -9,6 +9,7 @@ const migrationsDir = path.join(process.cwd(), "db", "migrations");
 const baseMigrationPath = path.join(migrationsDir, "001_base.sql");
 const vectorMigrationPath = path.join(migrationsDir, "002_vector.sql");
 const concreteWiringMigrationPath = path.join(migrationsDir, "003_postgres_concrete_wiring.sql");
+const runtimeStateMigrationPath = path.join(migrationsDir, "004_runtime_state.sql");
 
 async function readMigration(filename: string) {
   return readFile(path.join(migrationsDir, filename), "utf8");
@@ -75,9 +76,23 @@ describe("SQL migrations", () => {
     expect(sql).toMatch(/CREATE INDEX IF NOT EXISTS ix_service_updates_effective_date/i);
   });
 
+  test("004_runtime_state.sql promotes runtime state tables and assistant run columns", async () => {
+    const sql = await readMigration("004_runtime_state.sql");
+
+    expect(sql).toMatch(/CREATE TABLE IF NOT EXISTS rate_limit_buckets/i);
+    expect(sql).toMatch(/CREATE TABLE IF NOT EXISTS idempotency_records/i);
+    expect(sql).toMatch(/ALTER TABLE assistant_runs[\s\S]*ADD COLUMN IF NOT EXISTS normalized_query TEXT/i);
+    expect(sql).toMatch(/ALTER TABLE assistant_runs[\s\S]*ADD COLUMN IF NOT EXISTS response_json JSONB/i);
+    expect(sql).toMatch(/ALTER TABLE assistant_run_citations[\s\S]*ADD COLUMN IF NOT EXISTS article_version_id TEXT/i);
+    expect(sql).toMatch(/ALTER TABLE assistant_run_citations[\s\S]*ADD COLUMN IF NOT EXISTS verification_source TEXT/i);
+    expect(sql).toMatch(/ALTER TABLE assistant_runs[\s\S]*ALTER COLUMN payload_hash SET DEFAULT ''/i);
+    expect(sql).toMatch(/CREATE INDEX IF NOT EXISTS ix_idempotency_records_expires_at/i);
+  });
+
   test("migration files exist where the runner expects them", async () => {
     await expect(readFile(baseMigrationPath, "utf8")).resolves.toContain("app_users");
     await expect(readFile(vectorMigrationPath, "utf8")).resolves.toContain("vector");
     await expect(readFile(concreteWiringMigrationPath, "utf8")).resolves.toContain("redemption_attempts");
+    await expect(readFile(runtimeStateMigrationPath, "utf8")).resolves.toContain("rate_limit_buckets");
   });
 });

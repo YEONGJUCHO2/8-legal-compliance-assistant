@@ -66,3 +66,13 @@
 - 삭제: `disagreement`, `inForce` (기존 snake 필드로 대체)
 - 리네임: `answerStrengthDowngrade` → `answer_strength_downgrade`
 - 검증: `npm run typecheck` 통과, `npm run lint` 통과, `npm test` => `151 passed, 1 skipped`, `npm run build` 통과
+
+## Runtime State PG 승격 (history/rate-limit/idempotency)
+- 상태: 성공
+- 신규 파일: `src/lib/assistant/{history-store-pg.ts,idempotency-pg.ts}`, `src/lib/rate-limit-pg.ts`, `db/migrations/004_runtime_state.sql`, `tests/unit/history-store-pg.test.ts`, `tests/unit/rate-limit-pg.test.ts`, `tests/unit/assistant/idempotency-pg.test.ts`
+- 수정 파일: `src/lib/{assistant/deps.ts,assistant/run-query.ts,rate-limit.ts}`, `tests/{unit/migrations.test.ts,integration/migration.test.ts,unit/rate-limit.test.ts}`
+- 신규 마이그레이션: `004_runtime_state.sql` (`assistant_runs`/`assistant_run_citations` 보강, `rate_limit_buckets`/`idempotency_records` 신설)
+- 선택한 동시성 전략 (rate-limit): `FOR UPDATE` — 기존 `checkRateLimit`의 read-modify-write를 같은 트랜잭션 row lock으로 묶어 lost update를 막았습니다.
+- idempotency TTL 정책: lookup 시 만료 체크로 null 반환, `sweep()`는 만료 row opportunistic delete만 수행하고 백그라운드 청소는 후속
+- 검증: `npm run lint` 통과, `npm test` => `159 passed, 1 skipped`, `npm run build` 통과, `npm run typecheck` 통과, 신규 단위 테스트 7개 + migration 검증 갱신
+- 후속: `assistant_runs`의 legacy 컬럼(`payload_hash`, `verification_state` 등)은 기본값만 유지하고 새 PG history 경로에서는 읽지 않습니다.

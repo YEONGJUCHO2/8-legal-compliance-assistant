@@ -17,6 +17,9 @@ describe("rate-limit", () => {
     expect(first.allowed).toBe(true);
     expect(second.allowed).toBe(true);
     expect(third.allowed).toBe(false);
+    if (third.allowed) {
+      throw new Error("expected third request to be rate limited");
+    }
     expect(third.retryAfterMs).toBeGreaterThan(0);
     expect(fourth.allowed).toBe(true);
   });

@@ -5,7 +5,9 @@ import { createEngineAdapter } from "@/lib/assistant/engine";
 import type { EngineSessionStore } from "@/lib/assistant/engine/session-store";
 import type { EngineAdapter } from "@/lib/assistant/engine/types";
 import { createInMemoryIdempotencyStore, type IdempotencyStore } from "@/lib/assistant/idempotency";
+import { createPgIdempotencyStore } from "@/lib/assistant/idempotency-pg";
 import { createInMemoryHistoryStore, type HistoryStore } from "@/lib/assistant/history-store";
+import { createPgHistoryStore } from "@/lib/assistant/history-store-pg";
 import { createDbLawStorage } from "@/lib/db/storage";
 import { getEnv } from "@/lib/env";
 import { createLogger, type AppLogger } from "@/lib/logging";
@@ -13,6 +15,7 @@ import { createKoreanLawMcpClient } from "@/lib/open-law/mcp-client";
 import type { KoreanLawMcpClient } from "@/lib/open-law/mcp-client";
 import { generateRequestId } from "@/lib/request-id";
 import { createInMemoryRateLimitStore, type RateLimitStore } from "@/lib/rate-limit";
+import { createPgRateLimitStore } from "@/lib/rate-limit-pg";
 import { createInMemoryStorage } from "@/lib/search/in-memory-storage";
 import { retrieve } from "@/lib/search/retrieve";
 import type { LawStorage } from "@/lib/search/storage";
@@ -119,6 +122,8 @@ function createDefaultDeps(): AssistantDeps {
 function createProductionDeps(): AssistantDeps {
   try {
     const env = getEnv();
+    const rateLimitCapacity = 20;
+    const rateLimitRefillPerSec = 10 / 60;
 
     return {
       authStore: createPgAuthStore(),
@@ -128,11 +133,14 @@ function createProductionDeps(): AssistantDeps {
       mcp: createKoreanLawMcpClient({
         baseUrl: env.KOREAN_LAW_MCP_URL
       }),
-      historyStore: createInMemoryHistoryStore(),
-      idempotencyStore: createInMemoryIdempotencyStore(),
+      historyStore: createPgHistoryStore(),
+      idempotencyStore: createPgIdempotencyStore(),
       logger: createLogger(),
       generateRequestId,
-      rateLimitStore: createInMemoryRateLimitStore(),
+      rateLimitStore: createPgRateLimitStore({
+        capacity: rateLimitCapacity,
+        refillPerSec: rateLimitRefillPerSec
+      }),
       serviceUpdateStore: createPgServiceUpdateStore(),
       now: () => new Date(),
       today: () => new Date().toISOString().slice(0, 10)

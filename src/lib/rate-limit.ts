@@ -44,10 +44,26 @@ export async function checkRateLimit(
   store: RateLimitStore & {
     capacity?: number;
     refillPerSec?: number;
+    consume?: (
+      key: string,
+      now: string | Date
+    ) => Promise<
+      | {
+          allowed: true;
+        }
+      | {
+          allowed: false;
+          retryAfterMs: number;
+        }
+    >;
   },
   key: string,
   now: string | Date
 ) {
+  if (typeof store.consume === "function") {
+    return store.consume(key, now);
+  }
+
   const currentMs = toMillis(now);
   const capacity = store.capacity ?? 20;
   const refillPerSec = store.refillPerSec ?? 10 / 60;

@@ -44,6 +44,8 @@ test("base migrations apply idempotently on a clean database", async ({ skip }) 
     expect(tables.map((row) => row.table_name)).toContain("app_users");
     expect(tables.map((row) => row.table_name)).toContain("assistant_runs");
     expect(tables.map((row) => row.table_name)).toContain("service_updates");
+    expect(tables.map((row) => row.table_name)).toContain("rate_limit_buckets");
+    expect(tables.map((row) => row.table_name)).toContain("idempotency_records");
 
     const authMagicLinkColumns = await sql<{ column_name: string }[]>`
       SELECT column_name
@@ -67,11 +69,73 @@ test("base migrations apply idempotently on a clean database", async ({ skip }) 
 
     expect(serviceUpdateIdColumn[0]?.data_type).toBe("text");
 
+    const assistantRunColumns = await sql<{ column_name: string }[]>`
+      SELECT column_name
+      FROM information_schema.columns
+      WHERE table_schema = ${schemaName}
+        AND table_name = 'assistant_runs'
+        AND column_name IN (
+          'rerun_from_run_id',
+          'normalized_query',
+          'clarification_question',
+          'conclusion',
+          'explanation',
+          'caution',
+          'changed_since_created',
+          'reference_date_confirmed',
+          'response_json'
+        )
+      ORDER BY column_name
+    `;
+
+    expect(assistantRunColumns.map((row) => row.column_name)).toEqual([
+      "caution",
+      "changed_since_created",
+      "clarification_question",
+      "conclusion",
+      "explanation",
+      "normalized_query",
+      "reference_date_confirmed",
+      "response_json",
+      "rerun_from_run_id"
+    ]);
+
+    const citationColumns = await sql<{ column_name: string }[]>`
+      SELECT column_name
+      FROM information_schema.columns
+      WHERE table_schema = ${schemaName}
+        AND table_name = 'assistant_run_citations'
+        AND column_name IN (
+          'article_version_id',
+          'position',
+          'verification_source',
+          'mcp_disagreement',
+          'latest_article_version_id',
+          'changed_summary',
+          'changed_at'
+        )
+      ORDER BY column_name
+    `;
+
+    expect(citationColumns.map((row) => row.column_name)).toEqual([
+      "article_version_id",
+      "changed_at",
+      "changed_summary",
+      "latest_article_version_id",
+      "mcp_disagreement",
+      "position",
+      "verification_source"
+    ]);
+
     const migrationRows = (await sql.unsafe(
       `SELECT id FROM "${schemaName}"."schema_migrations" ORDER BY id`
     )) as { id: string }[];
 
-    expect(migrationRows.map((row) => row.id)).toEqual(["001_base.sql", "003_postgres_concrete_wiring.sql"]);
+    expect(migrationRows.map((row) => row.id)).toEqual([
+      "001_base.sql",
+      "003_postgres_concrete_wiring.sql",
+      "004_runtime_state.sql"
+    ]);
   } catch (error) {
     skip(
       error instanceof Error

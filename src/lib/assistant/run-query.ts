@@ -430,11 +430,11 @@ export async function runQuery({
     remember?: boolean;
     errorCode?: string;
   }) => {
+    await deps.historyStore.persistRun(run, response);
+
     if (citations && citations.length > 0) {
       await deps.historyStore.persistCitations(buildPersistedCitationRows(run.id, citations));
     }
-
-    await deps.historyStore.persistRun(run, response);
 
     if (remember) {
       await rememberIdempotency(deps, authedUser.id, request, run.id, nowIso);
