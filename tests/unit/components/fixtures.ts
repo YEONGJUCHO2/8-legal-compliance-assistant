@@ -54,6 +54,7 @@ export function createAnswerFixture(overrides: Partial<AnswerEnvelope> = {}): An
 export function createVerificationPendingFixture(): AskResponse {
   return {
     kind: "verification_pending",
+    status: "verification_pending",
     runId: "run-pending",
     message: "검증 지연: 최신 법령 대조가 끝나기 전이라 결론을 확정할 수 없습니다.",
     exportLocked: true,

@@ -50,3 +50,19 @@
 - 동작 요약: `service-updates`는 `listRecent`/`publish` upsert를 구현했고, production deps는 `DATABASE_URL` 존재 시 concrete store를 주입해 boot 가능하게 바꿨습니다.
 - 검증: `npm run typecheck` 통과, `npm run lint` 통과, `npm test` => `145 passed, 1 skipped`, `npm run build` 통과, 신규 테스트 9개 추가
 - 후속: `rateLimit`/`history`/`idempotency`는 여전히 in-memory입니다. 이번 범위에서는 production boot에 필요한 concrete wiring만 반영했습니다.
+
+## MCP Verification Integration Tests (Phase 6 품질 잠금)
+- 상태: 성공
+- 변경 파일: `tests/integration/mcp-verification.test.ts`, `tests/integration/helpers/mock-mcp-server.ts`
+- 변경 파일: `src/lib/{assistant/run-query,assistant/ask-schema,verify/engine,db/rows}.ts`, `tests/unit/{rows,components/fixtures}.test.ts`
+- 신규 테스트: `tests/integration/mcp-verification.test.ts` + `helpers/mock-mcp-server.ts`
+- 발견된 wiring gap / 수정 내역: agreement/out-of-force 응답이 `verification_source: "local"` 로 노출되던 문제, disagreement 시 `strength`가 `clear`로 남던 문제, `verification_pending` 응답에 top-level `status`가 없던 문제를 수정했습니다.
+- 발견된 wiring gap / 수정 내역: citation 응답에 `disagreement`/`inForce`/`answerStrengthDowngrade`/`missing` source를 추가 노출했고, mock MCP 서버 close가 keep-alive로 지연되지 않도록 helper를 보강했습니다.
+- 검증: `npm run typecheck` 통과, `npm run lint` 통과, `npm test` => `151 passed, 1 skipped`, `npm run build` 통과, 신규 통합 테스트 6개 추가
+
+## Citation 네이밍 정리
+- 상태: 성공
+- 변경 파일: `src/lib/{db/rows,assistant/ask-schema,assistant/run-query}.ts`, `tests/integration/mcp-verification.test.ts`
+- 삭제: `disagreement`, `inForce` (기존 snake 필드로 대체)
+- 리네임: `answerStrengthDowngrade` → `answer_strength_downgrade`
+- 검증: `npm run typecheck` 통과, `npm run lint` 통과, `npm test` => `151 passed, 1 skipped`, `npm run build` 통과

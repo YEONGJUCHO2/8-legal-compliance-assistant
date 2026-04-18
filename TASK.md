@@ -1,89 +1,65 @@
-# TASK — Postgres Concrete Wiring (Production Boot 가능화)
+# TASK — Citation 응답 네이밍 정리 (snake_case 통일)
 
 ## 맥락
-직전 RESULT.md 기준, 아래 3개 저장소가 `notImplemented()` / `TODO throw` 상태라 `NODE_ENV=production`에서 deps가 fail-closed로 막혀있음. 이번 턴에 실구현 채워서 production boot 가능하게 만든다.
+직전 턴(MCP Integration Tests)에서 `Citation` 응답에 camelCase 필드가 신규 추가되면서 기존 snake_case 필드와 중복·혼용 상태가 됐다. 이번 턴에 contract 오염 전에 정리한다.
 
-대상 파일:
-- `src/lib/auth/pg-store.ts` — 11개 AuthStore 메서드
-- `src/lib/db/storage.ts` — 4개 LawStorage 메서드
-- `src/lib/service-updates.ts` — PgServiceUpdateStore 2개 메서드 (`listRecent`, `publish`)
+## 현황
 
-스키마: `db/migrations/001_base.sql` + `002_vector.sql` 기준. 타입: `src/lib/auth/types.ts`, `src/lib/search/storage.ts`, `service-updates.ts` 상단 인터페이스 — **시그니처 변경 금지**.
+기존 API 컨벤션: **snake_case** (`mcp_verified`, `in_force_at_query_date`, `verification_source`, `mcp_disagreement` 등).
 
-## 목표
-1. 위 3파일의 모든 메서드를 postgres.js(`Sql`) 기반 구현으로 교체.
-2. deps 런타임 (`src/lib/assistant/deps.ts`)이 `DATABASE_URL` 있으면 concrete store 주입하도록 확인. fail-closed는 연결 실패/누락 시에만 동작하게 유지.
-3. 스키마 정합성 점검. 누락된 컬럼/테이블이 있으면 **`db/migrations/003_*.sql`로 분리 추가** (기존 001/002 편집 금지).
-4. 각 대상 파일당 최소 1개 happy-path 테스트 추가 (회귀 방지).
-5. 기존 테스트(136 passed, 1 skipped) 그대로 통과.
+직전 턴에 추가된 camelCase 필드 (source: `src/lib/db/rows.ts`, `src/lib/assistant/ask-schema.ts`, 응답 빌더 `src/lib/assistant/run-query.ts::buildCitationList`):
+
+| camelCase 신규 | 기존 snake 대응 | 결정 |
+|---|---|---|
+| `disagreement` | `mcp_disagreement` (이미 존재) | **camel 삭제** — 기존 `mcp_disagreement` 사용 |
+| `inForce` | `in_force_at_query_date` (이미 존재) | **camel 삭제** — 기존 `in_force_at_query_date` 사용 |
+| `answerStrengthDowngrade` | 기존에 없음 | **snake로 리네임**: `answer_strength_downgrade` |
 
 ## 작업 지시
 
-### A. PgAuthStore (`src/lib/auth/pg-store.ts`)
-테이블: `auth_magic_links`, `auth_sessions`, `app_users`, `user_identities`.
-- `createMagicLink`: INSERT, `redemption_attempts=0`, `state` 기본값은 in-memory-store와 동등.
-- `findMagicLinkByHash`: `token_hash` 유니크 조회.
-- `consumeMagicLink(id, consumedAt)`: `UPDATE ... SET consumed_at=$2 WHERE id=$1 AND consumed_at IS NULL RETURNING *`. 이미 consumed면 null.
-- `countMagicLinksForEmailSince(email, since)`: `WHERE email=$1 AND created_at >= $2` COUNT.
-- `incrementRedemptionAttempts(id)`: +1 RETURNING. 컬럼이 스키마에 없으면 003에 추가.
-- `createSession` / `findSessionByHash` / `revokeSession`: `auth_sessions` 기반.
-- `findOrCreateUserByEmail`: identity upsert(트랜잭션). `user_identities(provider, provider_subject)` UNIQUE 활용.
-- `findUserById`: `app_users` SELECT.
+### A. 타입/스키마 정리
+- `src/lib/db/rows.ts`의 `Citation` 인터페이스에서:
+  - `disagreement?: boolean` **제거**
+  - `inForce?: boolean` **제거**
+  - `answerStrengthDowngrade?` **→ `answer_strength_downgrade?`** 로 이름 변경
+- `src/lib/assistant/ask-schema.ts`의 `citationSchema`에서 동일 정리.
+- `verification_source` enum은 `"local" | "mcp" | "missing"` 그대로 유지 (valid).
+- `verification_pending` 응답의 top-level `status` 필드도 그대로 유지.
 
-### B. DbLawStorage (`src/lib/db/storage.ts`)
-대상: `law_articles`, `law_documents`.
-- `findArticlesByLexical(query, opts)`: `pg_trgm` similarity + `unaccent`, ORDER BY similarity DESC LIMIT n. in-memory 랭킹 의미 유지.
-- `findArticlesByNumber`: `law_id` + `article_no` 조합 조회.
-- `findFromSnapshotCache`: `law_documents.snapshot_hash` 매칭.
-- `hydrateArticles(ids[])`: `WHERE id = ANY($1::uuid[])` 배치, 입력 순서 보존.
+### B. 응답 빌더 정리
+- `src/lib/assistant/run-query.ts::buildCitationList`에서:
+  - `disagreement`, `inForce` 필드 출력 제거 (기존 `mcp_disagreement`, `in_force_at_query_date` 유지).
+  - `answerStrengthDowngrade` → `answer_strength_downgrade` 필드명 변경.
 
-### C. PgServiceUpdateStore (`src/lib/service-updates.ts`)
-- 스키마에 `service_updates` 없으면 003 마이그레이션 추가:
-  ```sql
-  CREATE TABLE IF NOT EXISTS service_updates (
-    id TEXT PRIMARY KEY,
-    title TEXT NOT NULL,
-    summary TEXT NOT NULL,
-    behavior_version TEXT NOT NULL,
-    effective_date DATE NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-  );
-  CREATE INDEX IF NOT EXISTS ix_service_updates_effective_date ON service_updates(effective_date DESC);
-  ```
-- `listRecent(limit)`: `ORDER BY effective_date DESC LIMIT $1`.
-- `publish(update)`: INSERT ... ON CONFLICT (id) DO UPDATE (idempotent).
+### C. 테스트 업데이트
+- `tests/integration/mcp-verification.test.ts`에서 위 필드 검증 시
+  - `disagreement` 검증 → `mcp_disagreement`로 전환
+  - `inForce` 검증 → `in_force_at_query_date`로 전환
+  - `answerStrengthDowngrade` 검증 → `answer_strength_downgrade`로 전환
+- 다른 테스트(`tests/unit/components/fixtures.ts`, `tests/unit/rows.test.ts`)도 동일 기준으로 정리.
 
-### D. deps 런타임 점검 (`src/lib/assistant/deps.ts`)
-`DATABASE_URL` 존재 시 concrete store 주입 경로 확인. fail-closed 가드 유지하되 정상 boot 보장.
+### D. 기타 호출부
+- repo 전체에서 `disagreement\s*[:=]`, `inForce\s*[:=]`, `answerStrengthDowngrade`를 grep해서 **Citation 응답 관련 호출부**만 동일하게 교체. (VerifiedCitation 내부 필드명 `answerStrengthDowngrade`는 내부 타입이므로 그대로 둬도 무방 — 응답 경계에서만 snake로 매핑되면 됨. 단 이중 진실을 피하고 싶다면 내부도 리네임 가능, 판단 맡김.)
 
-### E. 테스트
-- 기존 `tests/integration/*` / `tests/unit/*` 패턴 따르기.
-- 실DB 셋업이 없으면 `postgres` 라이브러리 모킹으로 SQL 호출 shape 검증하는 얇은 유닛 테스트라도 추가.
-- 각 대상 파일당 happy-path 1개 이상.
-
-### F. 검증
-- `npm run typecheck` 0
-- `npm run lint` 0
-- `npm test` 기존 + 신규 모두 통과
+## 검증
+- `npm run typecheck` 0 에러
+- `npm run lint` 0 에러
+- `npm test` 통과 수 유지 (직전 151 passed, 1 skipped 동등 이상)
 - `npm run build` 성공
-- DATABASE_URL 없는 dev 경로 정상 동작 (dev-seed 유지)
 
 ## 금지
-- `plan.md`, `CONTRACTS.md`, `INVARIANTS.md`, `plans/phase-*.md` 수정 금지.
-- 기존 마이그레이션 파일(`001_*.sql`, `002_*.sql`) 편집 금지.
-- 인터페이스/타입 시그니처 변경 금지.
-- UI/라우트 로직 변경 금지 (스코프 밖).
+- 신규 필드/마이그레이션/route 추가 금지.
+- `plan.md`, `INVARIANTS.md`, `plans/phase-*.md` 수정 금지.
+- `mcp_disagreement`, `in_force_at_query_date`, `verification_source` 등 기존 필드 이름·의미 변경 금지.
 
 ## 완료 규약
-1. `RESULT.md`에 섹션 **append** (30줄 이내):
+1. `RESULT.md`에 섹션 append (15줄 이내):
    ```
-   ## Postgres Concrete Wiring
-   - 상태: 성공 | 부분성공(사유)
+   ## Citation 네이밍 정리
+   - 상태: 성공
    - 변경 파일: <목록>
-   - 신규 마이그레이션: 003_*.sql (있다면)
-   - 동작 요약: pg-store / storage / service-updates 각 한 줄
-   - 검증: typecheck/lint/test/build 결과 + 신규 테스트 개수
-   - 후속: 남은 이슈/TODO
+   - 삭제: disagreement, inForce (기존 snake 필드로 대체)
+   - 리네임: answerStrengthDowngrade → answer_strength_downgrade
+   - 검증: typecheck/lint/test/build 결과 + 테스트 통과 수
    ```
-2. 완료 시 터미널에 `POSTGRES_WIRING_DONE` 한 줄 출력 (Claude가 꼬리 캡처로 확인).
-3. 장문/전체 diff 출력 금지. 한 파일(RESULT.md)에 압축.
+2. 완료 시 터미널에 `CITATION_RENAME_DONE` 출력.

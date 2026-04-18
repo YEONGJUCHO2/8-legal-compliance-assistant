@@ -61,7 +61,7 @@ async function verifyOneCitation(
       mcpBody: compared.disagreement ? article.body : undefined,
       mcpSnapshotHash: compared.disagreement ? article.snapshotHash : undefined,
       inForce,
-      answerStrengthDowngrade: inForce ? undefined : "conditional",
+      answerStrengthDowngrade: compared.disagreement || !inForce ? "conditional" : undefined,
       verifiedAt: new Date().toISOString(),
       failureReason: compared.reason,
       latestArticleVersionId: article.latestArticleVersionId ?? null,

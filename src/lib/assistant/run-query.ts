@@ -93,6 +93,7 @@ function buildNoMatchResponse(runId: string): Extract<AskResponse, { kind: "no_m
 function buildCitationList(verified: VerifiedCitation[]): Citation[] {
   return verified.map((citation) => {
     const renderedText = citation.rendered_from_verification ? citation.mcpBody ?? citation.localBody : citation.localBody;
+    const verificationSource = citation.verification_source === "missing" ? "missing" : "mcp";
 
     return {
       law_id: citation.lawId,
@@ -102,12 +103,13 @@ function buildCitationList(verified: VerifiedCitation[]): Citation[] {
       quote: renderedText,
       law_title: citation.lawTitle,
       article_number: citation.articleNo,
-      mcp_verified: citation.verifiedAt !== null && citation.verification_source !== "missing",
+      mcp_verified: citation.verifiedAt !== null && verificationSource !== "missing",
       verified_at: citation.verifiedAt,
       in_force_at_query_date: citation.inForce,
-      verification_source: citation.verification_source === "mcp" ? "mcp" : "local",
+      verification_source: verificationSource,
       rendered_from_verification: citation.rendered_from_verification || undefined,
-      mcp_disagreement: citation.disagreement || undefined,
+      mcp_disagreement: citation.disagreement,
+      answer_strength_downgrade: citation.answerStrengthDowngrade,
       latest_article_version_id: citation.latestArticleVersionId ?? null,
       changed_summary: citation.changedSummary ?? citation.failureReason ?? null
     };
@@ -134,7 +136,10 @@ function buildAnswerStrength(verification: VerificationOutput) {
     return "verification_pending" as const;
   }
 
-  if (verification.citations.some((citation) => citation.answerStrengthDowngrade === "conditional")) {
+  if (
+    verification.overall === "mcp_disagreement" ||
+    verification.citations.some((citation) => citation.answerStrengthDowngrade === "conditional")
+  ) {
     return "conditional" as const;
   }
 
@@ -201,6 +206,7 @@ function maybeCanceled(deps: AssistantDeps, requestId?: string) {
 function buildVerificationPendingResponse(runId: string, answer?: AnswerEnvelope): AskResponse {
   return {
     kind: "verification_pending",
+    status: "verification_pending",
     runId,
     message: "법령 검증이 지연되어 확정 답변으로 표시할 수 없습니다. 검증 상태를 먼저 확인해 주세요.",
     exportLocked: true,

@@ -45,9 +45,10 @@ const citationSchema = z.object({
   mcp_verified: z.boolean(),
   verified_at: z.string().nullable(),
   in_force_at_query_date: z.boolean(),
-  verification_source: z.enum(["local", "mcp"]),
+  verification_source: z.enum(["local", "mcp", "missing"]),
   rendered_from_verification: z.boolean().optional(),
   mcp_disagreement: z.boolean().optional(),
+  answer_strength_downgrade: z.enum(["conditional", "verification_pending"]).optional(),
   latest_article_version_id: z.string().nullable().optional(),
   changed_summary: z.string().nullable().optional()
 });
@@ -107,6 +108,7 @@ export const AskResponseSchema = z.discriminatedUnion("kind", [
   }),
   z.object({
     kind: z.literal("verification_pending"),
+    status: z.literal("verification_pending"),
     runId: z.string(),
     message: z.string(),
     exportLocked: z.literal(true),

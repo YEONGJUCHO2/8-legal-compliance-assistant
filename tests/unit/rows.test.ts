@@ -67,7 +67,7 @@ test("row contracts remain exported with the expected field shapes", () => {
   }>();
   expectTypeOf<Citation>().toMatchTypeOf<{
     article_id: string;
-    verification_source: "local" | "mcp";
+    verification_source: "local" | "mcp" | "missing";
   }>();
   expectTypeOf<ObservabilityLogEvent>().toMatchTypeOf<{
     request_id: string;

@@ -17,9 +17,10 @@ export interface Citation {
   mcp_verified: boolean;
   verified_at: ISODateTime | null;
   in_force_at_query_date: boolean;
-  verification_source: "local" | "mcp";
+  verification_source: "local" | "mcp" | "missing";
   rendered_from_verification?: boolean;
   mcp_disagreement?: boolean;
+  answer_strength_downgrade?: "conditional" | "verification_pending";
   latest_article_version_id?: UUID | null;
   changed_summary?: string | null;
 }
