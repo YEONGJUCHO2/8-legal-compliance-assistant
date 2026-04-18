@@ -5,9 +5,9 @@ Implement the retrieval layer chosen in Phase 02b so a natural-language question
 
 ## Scope
 ### In scope
-- A retrieval boundary that can wrap the Phase 02b winner
+- A retrieval boundary for the targeted-cache Phase 02b winner
 - Query-time alias normalization
-- Strategy-specific ranking, caching, or local-index logic selected by the bake-off
+- Lexical ranking, article-number lookup, and snapshot-cache lookup selected by the bake-off
 - Effective-date and repeal filtering
 - Empty-evidence detection and ranking thresholds
 - Retrieval eval harness inputs and score logging hooks for the MVP wedge only
@@ -25,43 +25,42 @@ Implement the retrieval layer chosen in Phase 02b so a natural-language question
 ## Internal Retrieval Contract
 
 ```ts
-type RetrievalResult = {
-  items: Array<{
-    law_id: string | null;
-    article_id: string;
-    article_version_id: string | null;
-    law_title: string;
-    article_number: string;
-    excerpt: string;
-    effective_from: string;
-    effective_to: string | null;
-    in_force_on_query_date: boolean;
-    retrieval_rank: number;
-    match_reason: 'alias' | 'lexical' | 'vector' | 'hybrid' | 'mcp';
+interface RetrievalResult {
+  candidates: Array<{
+    article_id: UUID;
+    article_version_id: UUID;
+    score: number; // normalized 0..1
+    score_components: {
+      lexical?: number;
+      article_number?: number;
+      cache_match?: number;
+      appendix_boost?: number;
+      effective_date_boost?: number;
+    };
+    snippet: string;
   }>;
-  outcome: 'ready' | 'weak_evidence' | 'empty';
-  normalized_query: string;
-  answered_scope_candidates?: string[];
-};
+  strategy: 'targeted_cache';
+  emitted_disagreement_capable: true;
+}
 ```
 
-Phase 7 consumes `RetrievalResult`, not strategy-native scores or provider confidence objects. Raw lexical/vector/MCP confidence details remain inside Phase 4 and observability output so orchestration cannot accidentally branch on backend-specific scoring semantics.
+Phase 7 consumes `RetrievalResult`, not strategy-native scores or provider confidence objects. Empty or weak evidence remains a retriever-side decision derived from `candidates` and threshold rules, while raw strategy-native confidence details remain inside Phase 4 and observability output so orchestration cannot accidentally branch on backend-specific scoring semantics.
 
 ## Steps
-- [ ] Step 1: Build the retrieval boundary for the bake-off winner
-  - Notes: create the strategy-specific helper under `src/lib/search/`; downstream orchestration should not hard-code whether retrieval is MCP-only, cache-assisted, or local-index-backed, and must consume only the internal `RetrievalResult` interface.
+- [ ] Step 1: Build the retrieval boundary for the targeted-cache winner
+  - Notes: create the targeted-cache helper under `src/lib/search/`; downstream orchestration should consume only the internal `RetrievalResult` interface with normalized `score`, not a vector- or MCP-only branch.
 - [ ] Step 2: Normalize the query before scoring
   - Notes: expand the alias dictionary from Phase 3 at query time; keep the original user query for history and prompts, but search over normalized terms.
-- [ ] Step 3: Implement the winning ranking path
-  - Notes: if the chosen strategy is MCP-only, optimize request shaping and cache reuse; if it is targeted cache or local index, implement the necessary deterministic ranking and score merge there. Retrieval must batch article fetches by unique `(law_id, article_number)` set instead of per-candidate N+1 lookups.
+- [ ] Step 3: Implement lexical + article-number + snapshot-cache ranking
+  - Notes: build deterministic ranking from lexical search, explicit article-number hits, and snapshot cache lookup. Retrieval must batch article fetches by unique `(law_id, article_number)` set instead of per-candidate N+1 lookups, and the result must remain comparable against live MCP verification.
 - [ ] Step 4: Enforce effective-date and repeal filters
   - Notes: filter candidates to only those in force at the user-selected reference date unless a later verification phase explicitly reclassifies them.
 - [ ] Step 5: Add empty-evidence and weak-evidence detection
   - Notes: define the threshold logic that blocks engine calls when the candidate set is empty or too weak; the message content belongs to Phase 7, but the signal originates here.
-- [ ] Step 6: Preserve enough metadata for downstream phases
-  - Notes: retrieval results must carry law title, article number, quote excerpt, and effective-date metadata so clarification, generation, and verification do not re-query blindly; hide raw strategy-native confidence fields behind normalized metadata and observability-only logs.
+- [ ] Step 6: Preserve enough metadata for downstream phases and disagreement signaling
+  - Notes: retrieval results must carry enough article metadata to hydrate citations downstream without re-querying blindly, and must preserve snapshot identifiers so Phase 6 can emit `mcp_disagreement` when cache text and live MCP verification diverge.
 - [ ] Step 7: Add retrieval tests and eval hooks
-  - Notes: cover alias cases, appendix matches, effective-date exclusions, top-k ordering, wrong-law suppression, and the chosen architecture's failure modes; build the retrieval gold set only from the MVP wedge corpus.
+  - Notes: cover alias cases, appendix matches, effective-date exclusions, top-k ordering, wrong-law suppression, snapshot-cache hits, article-number boosts, and `mcp_disagreement`-capable metadata; build the retrieval gold set only from the MVP wedge corpus.
 
 ## Test plan
 - Unit: alias expansion; strategy-specific ranking or cache behavior; effective-date filtering; appendix retrieval; empty-evidence detection.
@@ -74,4 +73,5 @@ Phase 7 consumes `RetrievalResult`, not strategy-native scores or provider confi
 - [ ] Alias-heavy real-world wedge queries no longer collapse into obvious false `no_match` states
 - [ ] Weak or empty evidence is detectable before any engine call happens
 - [ ] Phase 7 depends only on `RetrievalResult`, not strategy-native confidence or backend-specific score semantics
+- [ ] Retrieval exposes normalized scores plus `mcp_disagreement`-capable snapshot metadata without leaking strategy-specific ranking internals into orchestration
 - [ ] All invariants from Dependencies section verified

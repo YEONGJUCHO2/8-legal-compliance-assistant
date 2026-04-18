@@ -1,0 +1,32 @@
+{
+  "minimum_required": 200,
+  "categories": [
+    "baseline-safety",
+    "appendix-lookup",
+    "serious-accident-liability"
+  ],
+  "todo": "Expand this lawyer-graded wedge set to 200+ items before production scoring gates rely on it.",
+  "items": [
+    {
+      "id": "q1",
+      "query": "산안법 제10조 안전조치",
+      "referenceDate": "2025-01-01",
+      "expectedLawTitle": "산업안전보건법",
+      "expectedArticleNo": "제10조"
+    },
+    {
+      "id": "q2",
+      "query": "별표 1 프레스",
+      "referenceDate": "2025-01-01",
+      "expectedLawTitle": "산업안전보건법",
+      "expectedArticleNo": "별표 1"
+    },
+    {
+      "id": "q3",
+      "query": "중처법 경영책임자 의무",
+      "referenceDate": "2025-01-01",
+      "expectedLawTitle": "중대재해 처벌 등에 관한 법률",
+      "expectedArticleNo": "제4조"
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+import { afterEach, describe, expect, test, vi } from "vitest";
+
+const productionEnv = {
+  DATABASE_URL: "postgres://postgres:postgres@localhost:5432/legal",
+  LAW_API_KEY: "law-api-key",
+  KOREAN_LAW_MCP_URL: "https://example.com/mcp",
+  ENGINE_PROVIDER: "anthropic",
+  ANTHROPIC_API_KEY: "anthropic-key",
+  CODEX_DAEMON_URL: "http://127.0.0.1:7777",
+  APP_BASE_URL: "http://127.0.0.1:3000",
+  AUTH_SECRET: "a".repeat(32),
+  AUTH_MAGIC_LINK_TTL_MINUTES: "15",
+  RETRIEVAL_DEADLINE_MS: "500",
+  ENGINE_DEADLINE_MS: "1000",
+  MCP_VERIFY_DEADLINE_MS: "1200",
+  ROUTE_MAX_DURATION_SECONDS: "5",
+  DEADLINE_SAFETY_MARGIN_MS: "500"
+};
+
+describe("assistant deps production wiring", () => {
+  afterEach(() => {
+    vi.resetModules();
+    vi.unstubAllEnvs();
+  });
+
+  test("boots concrete stores in production when DATABASE_URL is configured", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+
+    for (const [key, value] of Object.entries(productionEnv)) {
+      vi.stubEnv(key, value);
+    }
+
+    const { getAssistantDeps, resetAssistantDepsForTesting } = await import("@/lib/assistant/deps");
+
+    resetAssistantDepsForTesting();
+    const deps = getAssistantDeps();
+
+    expect("db" in deps.authStore).toBe(true);
+    expect("db" in (deps.serviceUpdateStore ?? {})).toBe(true);
+    expect(deps.engine.provider).toBe("anthropic");
+    expect(typeof deps.storage.findArticlesByLexical).toBe("function");
+  });
+});

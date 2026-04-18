@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LawDetailResponse>
+  <law>
+    <mst>001</mst>
+    <lawId>LSA001</lawId>
+    <title>산업안전보건법</title>
+    <shortTitle>산안법</shortTitle>
+    <promulgationDate>2024-01-09</promulgationDate>
+    <enforcementDate>2024-01-09</enforcementDate>
+    <sourceUrl>https://open.law.go.kr/LSA001</sourceUrl>
+  </law>
+  <articles>
+    <article>
+      <articleNo>제1조</articleNo>
+      <title>목적</title>
+      <body>산업안전보건 기준을 확립하여 근로자의 안전과 보건을 유지·증진한다.</body>
+      <effectiveFrom>2024-01-09</effectiveFrom>
+    </article>
+    <article>
+      <articleNo>제10조</articleNo>
+      <title>안전조치</title>
+      <body>사업주는 필요한 안전조치를 하여야 한다.</body>
+      <effectiveFrom>2024-01-09</effectiveFrom>
+      <paragraphs>
+        <paragraph>
+          <paragraphNo>1</paragraphNo>
+          <body>사업주는 기계·기구에 대한 방호조치를 하여야 한다.</body>
+          <effectiveFrom>2024-01-09</effectiveFrom>
+          <items>
+            <item>
+              <itemNo>1</itemNo>
+              <body>덮개를 설치한다.</body>
+              <effectiveFrom>2024-01-09</effectiveFrom>
+            </item>
+          </items>
+        </paragraph>
+      </paragraphs>
+    </article>
+    <article>
+      <articleNo>제20조</articleNo>
+      <title>교육</title>
+      <body>&lt;div&gt;정기 안전보건교육을 실시한다.&lt;/div&gt; 개정이유: 삭제되어야 함</body>
+      <effectiveFrom>2025-01-01</effectiveFrom>
+      <effectiveTo>2026-01-01</effectiveTo>
+    </article>
+  </articles>
+  <appendices>
+    <appendix>
+      <label>별표 1</label>
+      <title>위험기계의 종류</title>
+      <body>&lt;table&gt;&lt;tr&gt;&lt;td&gt;프레스&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;</body>
+      <effectiveFrom>2024-01-09</effectiveFrom>
+    </appendix>
+  </appendices>
+</LawDetailResponse>

@@ -25,7 +25,7 @@ Wire the end-to-end assistant pipeline so a request moves through reference-date
 
 ## Steps
 - [ ] Step 1: Implement the request envelope and route validation
-  - Notes: create `app/api/ask/route.ts`; accept the `ask` and `rerun_current_law` modes defined in `CONTRACTS.md` and reject invalid payloads with structured JSON. Reuse of an existing `client_request_id` with a drifted payload is a hard conflict, not a dedupe hit.
+  - Notes: create `app/api/ask/route.ts`; accept the `ask` and `rerun_current_law` modes defined in `CONTRACTS.md` and reject invalid payloads with structured JSON. Reuse of an existing `client_request_id` with a drifted payload is a hard conflict, not a dedupe hit: persist `client_request_id -> payload_hash` for 24 hours, compare on each reuse, and return HTTP 409 `idempotency_conflict` on mismatch.
 - [ ] Step 2: Add deterministic date-confirmation gating
   - Notes: if the query contains an explicit or suspicious past-date hint that conflicts with the selected date, return `date_confirmation_required` before retrieval begins.
 - [ ] Step 3: Normalize and split the query for orchestration
@@ -39,13 +39,13 @@ Wire the end-to-end assistant pipeline so a request moves through reference-date
 - [ ] Step 7: Persist runs, citations, and rerun ancestry
   - Notes: create `src/lib/assistant/run-query.ts` and `src/lib/history.ts`; record status, effective date, behavior version, rerun parent, schema retry count, citation verification metadata, and the explicit terminal `schema_error` envelope after schema-retry exhaustion.
 - [ ] Step 8: Add idempotency and cancellation
-  - Notes: enforce `(user_id, client_request_id)` uniqueness, return the active request identity on duplicate submit, reject payload drift on reused IDs, and mark accepted-but-aborted work as `canceled`.
+  - Notes: enforce `(user_id, client_request_id)` uniqueness, return the active request identity on duplicate submit, reject payload drift on reused IDs by comparing the stored 24h payload hash, and mark accepted-but-aborted work as `canceled`.
 - [ ] Step 9: Implement the dedicated current-law rerun flow
-  - Notes: load the original question from history, hard-set the reference date to server `today`, and create a new run rather than mutating the stored snapshot. The rerun path must fail-closed to `verification_pending` when MCP freshness cannot be proven; it must not emit a fresh current-law conclusion from stale training data.
+  - Notes: load the original question from history, hard-set the reference date to server `today`, and create a new run rather than mutating the stored snapshot. If MCP freshness cannot be proven for any cited article, the rerun persists as `status='answered'` with `strength='verification_pending'`; it must not emit a fresh current-law conclusion with `strength='clear'` from stale or unverified data.
 
 ## Test plan
 - Unit: date-confirmation gate; clarify-vs-answer thresholding; skip behavior; rerun request shaping; idempotency key handling; payload-drift conflict rejection.
-- Integration: full request path from `/api/ask` through retrieval, generation, verification, and persistence using mocked dependencies, including fail-closed rerun behavior when freshness proof is unavailable.
+- Integration: full request path from `/api/ask` through retrieval, generation, verification, and persistence using mocked dependencies, including 24h idempotency payload-hash checks and fail-closed rerun behavior when freshness proof is unavailable.
 - E2E (if UI/E2E relevant): API-driven ask, clarify, skip, answer, cancel, and rerun-current-law flows.
 - Evals (if LLM-affecting): multi-intent routing suite; no-match phrasing suite; schema-error and verification-delay regression suite.
 

@@ -20,7 +20,7 @@ Create the minimal Next.js application skeleton, TypeScript setup, env loading, 
 ## Dependencies
 - Requires: none
 - Depends on contracts: `AskRequestSchema` naming conventions, `EngineProvider`, and environment-variable conventions from `CONTRACTS.md`
-- Depends on invariants: `UF-09 Staged Loading Skeleton`, `UF-10 First-Run Onboarding`, `UF-20 Accessibility Minimum`, `UF-22 Service-Update Surface`
+- Depends on invariants: `PG-13 Deadline Reconciliation`, `UF-09 Staged Loading Skeleton`, `UF-10 First-Run Onboarding`, `UF-20 Accessibility Minimum`, `UF-22 Service-Update Surface`
 
 ## Steps
 - [ ] Step 1: Create the app skeleton and dependency manifest
@@ -28,7 +28,7 @@ Create the minimal Next.js application skeleton, TypeScript setup, env loading, 
 - [ ] Step 2: Add environment parsing and local-development examples
   - Notes: create `.env.example` and `src/lib/env.ts`; include database, law API, MCP, engine provider, daemon URL, app base URL, auth-related variables, and the ask-route max-duration budget used later for MCP timeout reconciliation.
 - [ ] Step 3: Pin the runtime baseline before any server routes ship
-  - Notes: declare the ask and verification handlers as Vercel Node runtime, not Edge; record the allowed function duration and reserve headroom so downstream phases can downgrade to `verification_pending` before the platform timeout.
+  - Notes: declare the ask and verification handlers as Vercel Node runtime, not Edge; pin an explicit `maxDuration` budget (target example: 60s) and reserve headroom so downstream phases can downgrade to `verification_pending` before the platform timeout. Document the reconciliation rule `RETRIEVAL_DEADLINE_MS + ENGINE_DEADLINE_MS + MCP_VERIFY_DEADLINE_MS + safety_margin <= maxDuration`.
 - [ ] Step 4: Build the root layout and landing page shell
   - Notes: create `app/layout.tsx`, `app/page.tsx`, and `app/globals.css`; include product purpose, reference-date explanation, limitations, and a placeholder entry point for service-update summaries.
 - [ ] Step 5: Add the unit-test harness
@@ -40,7 +40,7 @@ Create the minimal Next.js application skeleton, TypeScript setup, env loading, 
 
 ## Test plan
 - Unit: env parsing rejects missing required variables; landing page renders onboarding text and reference-date explanation; service-update placeholder is visible.
-- Integration: app boot resolves path aliases and global styles without hydration errors; runtime config exposes the Node/max-duration baseline used by later ask routes.
+- Integration: app boot resolves path aliases and global styles without hydration errors; runtime config exposes the Node/max-duration baseline used by later ask routes and the deadline-reconciliation formula.
 - E2E (if UI/E2E relevant): home page loads; viewport smoke for desktop and mobile; first screen contains onboarding copy.
 - Evals (if LLM-affecting): none.
 
@@ -49,4 +49,5 @@ Create the minimal Next.js application skeleton, TypeScript setup, env loading, 
 - [ ] The landing page explains the product purpose, reference-date meaning, and usage boundaries
 - [ ] Env loading is centralized and fails fast on invalid configuration
 - [ ] The project pins a Node runtime and timeout budget early enough for Phase 6 and Phase 7 to reconcile MCP deadlines against platform limits
+- [ ] The runtime baseline records a reconciled `maxDuration` contract that later phases can measure against instead of guessing
 - [ ] All invariants from Dependencies section verified

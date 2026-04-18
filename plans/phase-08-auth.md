@@ -26,7 +26,7 @@ Add mandatory internal-trial authentication using email magic links while preser
 - [ ] Step 1: Implement the session and identity helpers
   - Notes: create `src/lib/auth/session.ts` and related helpers; read and validate session tokens against hashed session rows, not raw email state.
 - [ ] Step 2: Implement email magic-link issuance
-  - Notes: create request and consume endpoints or actions using `SMTP_URL`, `AUTH_SECRET`, and `AUTH_FROM_EMAIL`; store hashed single-use magic-link tokens with TTL, `consumed_at`, browser/CSRF binding metadata, issuance rate limits, and replay protection in addition to the eventual `auth_sessions` row.
+  - Notes: create request and consume endpoints or actions using `SMTP_URL`, `AUTH_SECRET`, and `AUTH_FROM_EMAIL`; mint an opaque 32-byte random token encoded as base64url with at least 256 bits of entropy, store it in `auth_magic_links(token_hash, email, created_at, expires_at, consumed_at, ip, user_agent)`, and enforce a 15-minute TTL. Tokens are single-use (`consumed_at` set on first redemption), bind their `state` parameter to the browser session for CSRF protection, rate-limit issuance to 5 requests per email per hour, and cap redemption attempts at 3 per token.
 - [ ] Step 3: Create or link the internal user row safely
   - Notes: new magic-link logins create `app_users` and `user_identities` rows; later providers must link to the same `app_users.id` through durable identity mapping, not blind email equality. If another provider already claims the same email with a different durable identity, trigger the PG-10 identity-merge conflict flow instead of silently merging.
 - [ ] Step 4: Protect server routes
@@ -39,7 +39,7 @@ Add mandatory internal-trial authentication using email magic links while preser
   - Notes: cover magic-link token generation and consumption, current-user lookup, protected-route rejection, and identity-link safety constraints.
 
 ## Test plan
-- Unit: session-token hashing; current-user lookup; identity-link rules; auth-expiry handling; token TTL/single-use enforcement; browser-binding replay rejection.
+- Unit: session-token hashing; current-user lookup; identity-link rules; auth-expiry handling; token TTL/single-use enforcement; browser-binding replay rejection; per-email request throttling; per-token redemption-attempt cap.
 - Integration: full magic-link login cycle with session persistence, protected-route access, and conflict-safe identity linking when another provider claims the same email.
 - E2E (if UI/E2E relevant): login, session expiry, and return-to-app behavior.
 - Evals (if LLM-affecting): none.

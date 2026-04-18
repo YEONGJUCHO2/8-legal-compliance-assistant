@@ -32,6 +32,10 @@ export interface EngineAdapter {
 export type EngineProvider = 'codex' | 'anthropic';
 ```
 
+## Internal Retrieval Pointer
+
+`RetrievalResult` is intentionally defined only in [plans/phase-04-retrieval.md](/Users/macmini-cho/Documents/Project/8-legal-compliance-assistant/plans/phase-04-retrieval.md). `CONTRACTS.md` remains authoritative on external envelopes; the retrieval shape stays internal so strategy-specific details cannot leak across the API boundary.
+
 ## Engine Output Modules
 
 The MVP engine call site is the answer generator. The other envelopes are still defined here because the pipeline and UI treat them as schema-governed module outputs and future engine-assisted variants should reuse the same shapes.
@@ -190,7 +194,7 @@ const AskRequestSchema = z.discriminatedUnion('mode', [
     effective_date: z
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/)
-      .refine((value) => value <= serverTodayISO(), 'effective_date must be today or earlier'),
+      .refine((value) => value <= serverTodayISO(), 'future_reference_date_not_supported'),
     client_request_id: z.string().uuid().optional(),
     reference_date_confirmed: z.boolean().optional(),
     skip_clarification: z.boolean().optional(),
@@ -242,6 +246,16 @@ type UserIdentityRow = {
   organization_id: string | null;
   created_at: ISODateTime;
 };
+
+type EngineSessionRow = {
+  id: UUID;
+  user_id: UUID;
+  provider: EngineProvider;
+  handle: string;
+  created_at: ISODateTime;
+  expires_at: ISODateTime;
+  revoked_at: ISODateTime | null;
+};
 ```
 
 ### `laws` (`law_documents`)
@@ -282,6 +296,7 @@ type LawArticleRow = {
   content_hash: string;
   version: number;
   embedding: number[] | null;
+  embedding_model_version: string | null;
   created_at: ISODateTime;
   updated_at: ISODateTime;
 };
@@ -304,9 +319,9 @@ type ArticleVersionRow = {
 ```
 
 Temporal selection rules for `ArticleVersionRow`:
-- Repeal gap: if no version is in force on the requested date, retrieval must return no active article instead of backfilling from the nearest older text.
-- Repealed then reinstated: reinstatement creates a new `ArticleVersionRow.version`; the resurrected text never mutates the older repealed row in place.
-- Future-effective amendments: future text may be stored, but current-law retrieval excludes it until `effective_from` is reached.
+- Repeal gap: if no version is in force on the requested date, retrieval must return no active article instead of backfilling from the nearest older text, and answer behavior downgrades that citation to `verification_pending`.
+- Repealed then reinstated: reinstatement creates a new `ArticleVersionRow.version` with a fresh `effective_from`; the resurrected text never mutates the older repealed row in place and the older row keeps its original `repealed_at`.
+- Future-effective amendments: future text may be stored, but current-law retrieval excludes it until `effective_from` is reached. It may appear in a secondary `예정 변경` banner, never as the primary citation for the current answer.
 - Fixtures for repeal-gap, reinstatement, and future-effective cases must remain part of the cross-phase regression corpus.
 
 ### `appendices` (logical view over `law_articles.kind = 'appendix'`)
@@ -402,6 +417,12 @@ type ObservabilityLogEvent = {
   engine_provider?: EngineProvider;
   engine_latency_ms?: number;
   schema_retries?: number;
+  stage_budget_burn_ms?: Partial<Record<'retrieval' | 'generation' | 'verification', number>>;
+  verification_concurrency?: {
+    in_flight: number;
+    cap: number;
+  };
+  schema_retry_exhausted?: boolean;
   verification_state?: 'verified' | 'conditional' | 'verification_pending';
   behavior_version?: string;
   rate_limit_state?: 'allowed' | 'rejected';
@@ -445,6 +466,11 @@ type AskResponse =
 ```
 
 If `session_id` is present on an API envelope, clients treat it as opaque transport metadata only. It is never rendered, user-editable, or a substitute for authenticated session state.
+
+Validation guarantees for `POST /api/ask`:
+- Future `effective_date` values are rejected with HTTP 400 `future_reference_date_not_supported`.
+- Reuse of a `client_request_id` with a different payload hash is rejected with HTTP 409 `idempotency_conflict`.
+- Regression fixture: `effective_date = 3024-01-01` must be rejected.
 
 ### `GET /api/history`
 

@@ -2,9 +2,9 @@
 
 This file centralizes the non-negotiable rules from the original plan preamble. Phase plans should reference these invariant names instead of restating them loosely.
 
-`MVP-Blocking Invariants` must be green before the first external user sees the product. This split is fixed at 11 pipeline guards plus 13 UI/trust invariants for MVP. `Post-MVP Quality Bar` items remain required roadmap commitments, but they do not block the initial wedge validation if the MVP-blocking set is complete; the remaining set is 13 UI quality-bar invariants.
+`MVP-Blocking Invariants` must be green before the first external user sees the product. The final-gate UF rebalance promoted the old `11 PG + 8 UF MVP / 18 UF Post-MVP` split to `11 PG + 13 UF MVP / 13 UF Post-MVP`, and the engineering gate then added `PG-12` and `PG-13`. The current blocking set is therefore 13 pipeline guards plus 13 UI/trust invariants. `Post-MVP Quality Bar` items remain required roadmap commitments, but they do not block the initial wedge validation if the MVP-blocking set is complete.
 
-## MVP-Blocking Invariants (11 PG + 13 UF)
+## MVP-Blocking Invariants (13 PG + 13 UF)
 
 ### Pipeline Hard Guards
 
@@ -42,6 +42,7 @@ This file centralizes the non-negotiable rules from the original plan preamble. 
 ### `PG-08 Current-Law Rerun Freshness`
 - For any new answer generation, including `현재 법령으로 다시 답변`, the runtime prefers the MCP-verified latest in-force text.
 - The rerun flow hard-sets the reference date to server `today` and ignores stale client-side date state.
+- Enforcement: if MCP freshness cannot be proven during `rerun_current_law`, the rerun may persist `status='answered'` only with `strength='verification_pending'`; it may never emit `strength='clear'` from unverified freshness.
 
 ### `PG-09 Per-User Engine Session Isolation`
 - Engine conversation context is carried by a provider-native identifier when available, otherwise by server-managed conversation state.
@@ -56,6 +57,16 @@ This file centralizes the non-negotiable rules from the original plan preamble. 
 - Queueing, timeout, and queue-depth caps may be used as optional protection when a provider or verification path needs it.
 - Requests above the cap return 503 immediately instead of piling up invisibly.
 
+### `PG-12 Corpus Text Inert`
+- Retrieved corpus text is treated as quoted data, not as executable or advisory instructions.
+- The ingestion sanitizer is the only path allowed to transform upstream law text before it is stored, embedded, prompted, or verified.
+- Enforcement: Phase 3 strips unsafe markup and control characters, enforces the allowed-text set, logs and drops unknown runs, and only uses post-sanitize text when computing hashes, embeddings, or prompt citation blocks.
+
+### `PG-13 Deadline Reconciliation`
+- Retrieval, generation, and verification budgets must fit inside the pinned Vercel Node runtime `maxDuration` with explicit safety margin.
+- The product may downgrade to a structured degraded state before platform timeout; it may not keep running until Vercel aborts the request blindly.
+- Enforcement: `RETRIEVAL_DEADLINE_MS + ENGINE_DEADLINE_MS + MCP_VERIFY_DEADLINE_MS + safety_margin <= maxDuration` is documented in Phase 1 and rechecked in Phase 10 dashboards and alerts.
+
 ### UI Failure Contracts
 
 ### `UF-01 Safe No-Match Phrasing`
@@ -66,6 +77,7 @@ This file centralizes the non-negotiable rules from the original plan preamble. 
 - `skipClarification` is honored server-side.
 - Clicking skip cannot loop back into the same clarification state.
 - Skip means "continue within known limits," not "force a final answer at any cost."
+- Rationale: design doc lines 160-169 make skip the user's control valve against clarification churn during field use; without it, the mobile wedge regresses to bureaucratic interrogation.
 
 ### `UF-05 Distinct Recovery States`
 - Session expiry, rate-limit hit, engine timeout, and MCP timeout each map to distinct structured UI states.
@@ -74,6 +86,7 @@ This file centralizes the non-negotiable rules from the original plan preamble. 
 ### `UF-09 Staged Loading Skeleton`
 - Pending requests render a staged loading skeleton, not just a disabled button.
 - Numeric percent progress is forbidden unless the server emitted a real stage or queue signal for that specific request.
+- Rationale: design doc lines 235-246 treat waiting-state honesty as trust-critical behavior and explicitly forbid fake progress.
 
 ### `UF-10 First-Run Onboarding`
 - First-run users see an onboarding surface before the empty form.
@@ -95,6 +108,7 @@ This file centralizes the non-negotiable rules from the original plan preamble. 
 ### `UF-18 Multi-Law Expansion Caps`
 - Multi-law answers expand at most 4 law sections on desktop and 2 on mobile by default.
 - Remaining law sections collapse behind a `기타 관련 법령 N건` affordance.
+- Rationale: design doc lines 194-208 require capped expansion so hidden obligations stay signaled without turning the first result into an infinite scroll.
 
 ### `UF-20 Accessibility Minimum`
 - Minimum accessibility is mandatory: keyboard navigation, visible focus, live-region announcements for progress and recovery states, and WCAG AA contrast for badges and warnings.
@@ -106,9 +120,11 @@ This file centralizes the non-negotiable rules from the original plan preamble. 
 ### `UF-24 Facts-First Rendering`
 - Answer rendering separates verified facts from cited law text from interpretive conclusion.
 - The result reads as objective evidence first, reasoning second.
+- Rationale: design doc lines 172-192 define verified facts before conclusion as the core anti-ChatGPT trust pattern for this product.
 
 ### `UF-25 Reading-Order Guidance`
 - First answer views teach users how to read the result: strength label, verified facts, conclusion, and caution are distinct layers.
+- Rationale: design doc lines 188-192 and 210-218 require explicit reading-order teaching so users do not flatten strength, facts, and interpretation into one undifferentiated AI answer.
 
 ## Post-MVP Quality Bar (13 UF)
 

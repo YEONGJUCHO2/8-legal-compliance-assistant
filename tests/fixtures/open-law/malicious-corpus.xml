@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LawDetailResponse>
+  <law>
+    <mst>999</mst>
+    <lawId>MAL001</lawId>
+    <title>악성 테스트 법령</title>
+    <promulgationDate>2024-01-09</promulgationDate>
+    <enforcementDate>2024-01-09</enforcementDate>
+  </law>
+  <articles>
+    <article>
+      <articleNo>제99조</articleNo>
+      <title>악성 페이로드</title>
+      <body>정상 문장 &lt;script&gt;alert(1)&lt;/script&gt; &lt;iframe src="https://evil.example"&gt;&lt;/iframe&gt; data:text/html;base64,ZXZpbA== 개정이유: 삭제 onerror="hack()"</body>
+      <effectiveFrom>2024-01-09</effectiveFrom>
+    </article>
+  </articles>
+</LawDetailResponse>

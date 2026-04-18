@@ -98,6 +98,12 @@ flowchart TD
 - Phase 02b is a mandatory spike, not optional discovery work; Phases 03 and 04 must conform to its decision document.
 - The orchestration phase depends on retrieval, engine, verification, and auth, so it is the integration pivot.
 
+## Final-Gate Decisions
+
+- Challenge 1: `UF-02`, `UF-09`, `UF-18`, `UF-24`, and `UF-25` stay MVP-blocking because first-run trust depends on server-honored skip behavior, staged loading honesty, multi-law caps, facts-first rendering, and explicit reading-order teaching.
+- Challenge 2: mobile first-screen rendering is facts-first, not conclusion-first. Phase 9 therefore uses explicit single-law and multi-law viewport templates, and the IME-closed first screen may span two vertical scrolls when needed.
+- Challenge 3: Phase 02b must reject any option that misses the retrieval-accuracy gate, serverless cold-start budget, degraded-MCP behavior spec, or `mcp_disagreement` signaling requirement. Phases 03 and 04 stay blocked until `docs/architecture-bakeoff.md` exists with a chosen path and rejected alternatives.
+
 ## Stage Gates
 
 - Gate 1: 50 real questions asked by real users from the MVP wedge within the first month of internal trial.

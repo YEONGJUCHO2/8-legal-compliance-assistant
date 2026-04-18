@@ -7,10 +7,9 @@ Build the MVP wedge corpus or cache pipeline selected by Phase 02b so the system
 ### In scope
 - `open.law.go.kr` DRF client and XML parsing helpers
 - Law title normalization and alias dictionary seeding for the MVP wedge
-- Wedge-only sync or targeted cache pipeline, depending on the Phase 02b decision
+- Phase 02b 결정에 따라 MVP 6법령 + 별표/별지 대상의 targeted cache pipeline
 - Corpus sanitization and allowed-text enforcement for stored law text
 - Effective-date tracking, repeal flags, and appendix handling for in-scope laws
-- Embedding backfill only if the Phase 02b decision selects a local-vector path
 - Re-sync hooks for locally flagged stale rows when a local cache exists
 
 ### Out of scope (deferred)
@@ -40,11 +39,12 @@ Target size:
 ## Dependencies
 - Requires: Phase 1 (project tooling), Phase 2 (schema, pgvector, migration runner), Phase 02b (architecture decision)
 - Depends on contracts: `LawsRow`, `LawArticleRow`, `ArticleVersionRow`, `AppendixRow`, `ObservabilityLogEvent`
-- Depends on invariants: `PG-06 Runtime Verification Precedence`, `PG-08 Current-Law Rerun Freshness`, `UF-03 Alias And Jargon Normalization`, `UF-16 Deterministic Explicit-Date Parser`
+- Depends on invariants: `PG-06 Runtime Verification Precedence`, `PG-08 Current-Law Rerun Freshness`, `PG-12 Corpus Text Inert`, `UF-03 Alias And Jargon Normalization`, `UF-16 Deterministic Explicit-Date Parser`
 
 ## Corpus Sanitization Invariant
 - Allowed text is inert legal-source content only: statute headings, article labels, body text, appendix labels, tables rendered to plain text, and promulgation/effective-date metadata.
-- Strip unsafe markup, embedded scripts, raw HTML attributes, amendment-reason prose that is not part of the operative text, and footnote/appendix decorations that can act like prompt injection or duplicate legal authority.
+- Strip unsafe markup, embedded scripts, iframes, data-URI payloads, raw HTML attributes, amendment-reason prose that is not part of the operative text, and footnote/appendix decorations that can act like prompt injection or duplicate legal authority.
+- Normalize whitespace, reject control characters, and enforce an allowed-text set limited to Korean text, Arabic digits, common punctuation, and a whitelisted symbol set.
 - Retrieved law text is stored as quoted data for later prompting, never as executable instruction.
 
 ## Steps
@@ -53,24 +53,24 @@ Target size:
 - [ ] Step 2: Normalize titles and seed alias vocabulary
   - Notes: normalize punctuation variants such as `·` vs `ㆍ`; create a shared dictionary for abbreviations and field jargon that retrieval can reuse later.
 - [ ] Step 3: Build the wedge-only sync or targeted-cache command
-  - Notes: create `scripts/sync-laws.ts` or equivalent; page only through the in-scope corpus and make the sync strategy match the Phase 02b winner instead of assuming nationwide bulk ingestion.
+  - Notes: create `scripts/sync-laws.ts` or equivalent; page only through the in-scope corpus and implement the targeted-cache winner instead of assuming nationwide bulk ingestion or a vector pipeline.
 - [ ] Step 4: Sanitize DRF corpus text before persistence
-  - Notes: strip unsafe markup from appendices, footnotes, and amendment reasons; normalize tables and footers to plain text; reject rows that violate the allowed-text invariant instead of silently storing unsafe source material.
+  - Notes: strip unsafe markup from appendices, footnotes, and amendment reasons; remove script, iframe, and data-URI payloads; normalize tables and footers to plain text; reject control characters; log and drop unknown character runs that violate the allowed-text invariant instead of silently storing unsafe source material.
 - [ ] Step 5: Split laws into article and appendix chunks when the chosen strategy stores local text
-  - Notes: preserve `article_path` stability so unchanged content does not fragment history; if the winning strategy is cache-light, only persist the chunks needed for reuse and verification support.
+  - Notes: preserve `article_path` stability so unchanged content does not fragment history; persist only the chunks needed for targeted cache reuse and verification support.
 - [ ] Step 6: Track versions and content hashes
-  - Notes: compute hashes from sanitized article or appendix content; update `law_articles` in place and append to `law_article_versions` only when content changes. Repealed-then-reinstated text always creates a new `ArticleVersionRow.version`, never an in-place overwrite.
+  - Notes: compute hashes from sanitized article or appendix content; record a source hash from the upstream XML payload to detect tampering before normalization; update `law_articles` in place and append to `law_article_versions` only when content changes. Repealed-then-reinstated text always creates a new `ArticleVersionRow.version`, never an in-place overwrite.
 - [ ] Step 7: Track effective dates and repeal state
-  - Notes: persist `effective_from`, `effective_to`, and `repealed_at`; enforce repeal-gap and future-effective selection rules so stale or superseded text remains recoverable through the version table whenever local text is stored.
-- [ ] Step 8: Add embedding generation only if the bake-off chooses a local-index path
-  - Notes: create `scripts/embed-laws.ts`; pin the exact embedding model by commit SHA and tokenizer checksum, store `embedding_model_version` per row, enforce preview/prod parity on that version, and refuse retrieval later if the stored version does not match the active runtime model.
+  - Notes: persist `effective_from`, `effective_to`, and `repealed_at`; enforce three explicit temporal rules whenever local text is stored: repeal-gap returns no in-force article for that date, future-effective text is excluded from primary retrieval until its `effective_from`, and reinstated text is represented as a fresh version row rather than mutating the repealed one.
+- [ ] Step 8: Explicitly defer embedding generation and pgvector work out of MVP scope
+  - Notes: Phase 02b fixed the MVP path to targeted cache + live MCP verification; do not add `scripts/embed-laws.ts`, embedding backfill, or pgvector assumptions in this phase.
 - [ ] Step 9: Add stale-row re-sync hooks
   - Notes: plan `scripts/resync-flagged.ts` or equivalent so Phase 6 can flag local rows for later repair after MCP disagreement.
 - [ ] Step 10: Add ingestion and parsing tests
   - Notes: cover XML parsing, appendix extraction, sanitization, title normalization, version rollover, repeal-gap and future-effective fixtures, unchanged upsert behavior, malicious-corpus fixtures, and any strategy-specific cache assumptions.
 
 ## Test plan
-- Unit: XML search parsing; detail parsing; appendix extraction; sanitization; title normalization; hash stability; article splitting edge cases.
+- Unit: XML search parsing; detail parsing; appendix extraction; sanitization; allowed-text enforcement; source-hash stability; title normalization; hash stability; article splitting edge cases.
 - Integration: import one or more real in-scope laws into a migrated database or cache store; rerun sync to confirm unchanged articles do not create duplicate versions and that invalid corpus fragments are rejected.
 - E2E (if UI/E2E relevant): none.
 - Evals (if LLM-affecting): corpus-quality smoke checks only for the MVP wedge laws and appendix coverage.
@@ -79,5 +79,6 @@ Target size:
 - [ ] A sync or cache run can populate the in-scope MVP corpus from `open.law.go.kr`
 - [ ] Content changes create new version rows while unchanged content stays stable when local text is stored
 - [ ] Repeal-gap, reinstatement, and future-effective amendments behave deterministically through fixtures
-- [ ] Embedding backfill exists only if the winning retrieval path needs it, with model-version pinning recorded per row
+- [ ] Sanitized corpus text is the only form reused for embeddings, prompts, and verification metadata
+- [ ] Embedding backfill and pgvector assumptions remain outside MVP scope for the targeted-cache winner
 - [ ] All invariants from Dependencies section verified
