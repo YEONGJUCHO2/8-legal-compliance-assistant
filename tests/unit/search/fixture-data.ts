@@ -76,16 +76,16 @@ export function loadFixtureArticles(): ArticleRecord[] {
 export const SEARCH_GOLD_SET = [
   {
     id: "q1",
-    query: "산안법 제10조 안전조치",
-    referenceDate: "2025-01-01",
-    expectedLawTitle: "산업안전보건법",
-    expectedArticleNo: "제10조"
+    query: "산안법 시행규칙 제3조 중대재해의 범위",
+    referenceDate: "2026-01-01",
+    expectedLawTitle: "산업안전보건법 시행규칙",
+    expectedArticleNo: "제3조"
   },
   {
     id: "q2",
-    query: "별표 1 프레스",
-    referenceDate: "2025-01-01",
-    expectedLawTitle: "산업안전보건법",
+    query: "별표 1 건설업체 산업재해발생률",
+    referenceDate: "2026-01-01",
+    expectedLawTitle: "산업안전보건법 시행규칙",
     expectedArticleNo: "별표 1"
   },
   {

@@ -227,7 +227,10 @@ export async function runSyncLaws({
 
     await upsertChunks({
       detailXml,
-      law: detail.law,
+      law: {
+        ...detail.law,
+        mst: searchHit.mst ?? detail.law.mst
+      },
       chunks: [
         ...detail.articles.map((article) => ({
           articleNo: article.articleNo,
@@ -312,6 +315,10 @@ function createSqlSyncStore(): SyncStore {
 
   return {
     async getLawDocumentByExternalId({ mst, lawId }) {
+      if (!mst && !lawId) {
+        return null;
+      }
+
       const rows = await sql<{
         id: string;
         mst: string | null;
@@ -325,8 +332,7 @@ function createSqlSyncStore(): SyncStore {
       }[]>`
         SELECT id, mst, law_id, title, short_title, promulgation_date, enforcement_date, source_url, snapshot_hash
         FROM law_documents
-        WHERE (${mst ?? null} IS NOT NULL AND mst = ${mst ?? null})
-           OR (${lawId ?? null} IS NOT NULL AND law_id = ${lawId ?? null})
+        WHERE ${mst ? sql`mst = ${mst}` : sql`law_id = ${lawId ?? null}`}
         ORDER BY fetched_at DESC NULLS LAST
         LIMIT 1
       `;

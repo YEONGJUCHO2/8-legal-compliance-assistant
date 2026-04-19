@@ -13,8 +13,8 @@ describe("runRetrievalEval", () => {
       ...SEARCH_GOLD_SET,
       {
         id: "q4",
-        query: "안전조치",
-        referenceDate: "2025-01-01",
+        query: "협조 요청",
+        referenceDate: "2026-01-01",
         expectedLawTitle: "중대재해 처벌 등에 관한 법률",
         expectedArticleNo: "제4조"
       }

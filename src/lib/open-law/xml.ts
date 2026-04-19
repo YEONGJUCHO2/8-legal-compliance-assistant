@@ -44,13 +44,67 @@ function readText(value: unknown): string {
   return "";
 }
 
+function normalizeDate(value: unknown): string | null {
+  const text = readText(value).replace(/\./g, "").replace(/\//g, "").replace(/-/g, "");
+
+  if (!text) {
+    return null;
+  }
+
+  if (/^\d{8}$/.test(text)) {
+    return `${text.slice(0, 4)}-${text.slice(4, 6)}-${text.slice(6, 8)}`;
+  }
+
+  return readText(value) || null;
+}
+
+function normalizeOrdinal(value: unknown): string | null {
+  const text = readText(value).trim();
+
+  if (!text) {
+    return null;
+  }
+
+  return text.replace(/[.)]$/, "").trim() || null;
+}
+
+function formatArticleNo(articleNo: unknown, branchNo: unknown): string {
+  const base = readText(articleNo).replace(/^0+/, "") || readText(articleNo);
+  const branch = readText(branchNo).replace(/^0+/, "");
+
+  if (!base) {
+    return "";
+  }
+
+  return branch ? `제${base}조의${branch}` : `제${base}조`;
+}
+
+function formatAppendixLabel(number: unknown, branchNo: unknown): string {
+  const base = readText(number).replace(/^0+/, "") || readText(number);
+  const branch = readText(branchNo).replace(/^0+/, "");
+
+  if (!base) {
+    return "";
+  }
+
+  return branch ? `별표 ${base}의${branch}` : `별표 ${base}`;
+}
+
 function parseArticleNode(node: Record<string, unknown>): OpenLawArticle[] {
-  const articleNo = readText(node.articleNo);
-  const title = readText(node.title) || null;
-  const body = readText(node.body);
-  const effectiveFrom = readText(node.effectiveFrom) || null;
-  const effectiveTo = readText(node.effectiveTo) || null;
-  const repealedAt = readText(node.repealedAt) || null;
+  if (readText(node.조문여부) && readText(node.조문여부) !== "조문") {
+    return [];
+  }
+
+  const articleNo = formatArticleNo(node.조문번호, node.조문가지번호);
+  const title = readText(node.조문제목) || null;
+  const body = readText(node.조문내용);
+  const effectiveFrom = normalizeDate(node.조문시행일자);
+  const effectiveTo = normalizeDate(node.조문종료일자);
+  const repealedAt = normalizeDate(node.조문삭제일자);
+
+  if (!articleNo || !body) {
+    return [];
+  }
 
   const article: OpenLawArticle = {
     articleNo,
@@ -65,18 +119,20 @@ function parseArticleNode(node: Record<string, unknown>): OpenLawArticle[] {
     articlePath: articleNo
   };
 
-  const paragraphs = asArray(node.paragraphs && (node.paragraphs as Record<string, unknown>).paragraph).flatMap(
-    (paragraphNode) => {
-      const paragraphRecord = paragraphNode as Record<string, unknown>;
-      const paragraphNo = readText(paragraphRecord.paragraphNo) || null;
-      const paragraphBody = readText(paragraphRecord.body);
-      const paragraphEffectiveFrom = readText(paragraphRecord.effectiveFrom) || effectiveFrom;
-      const paragraphEffectiveTo = readText(paragraphRecord.effectiveTo) || effectiveTo;
-      const paragraphRepealedAt = readText(paragraphRecord.repealedAt) || repealedAt;
+  const paragraphs = asArray(node.항).flatMap((paragraphNode) => {
+    const paragraphRecord = paragraphNode as Record<string, unknown>;
+    const paragraphNo = readText(paragraphRecord.항번호) || null;
+    const paragraphBody = readText(paragraphRecord.항내용);
+    const paragraphEffectiveFrom = normalizeDate(paragraphRecord.항시행일자) ?? effectiveFrom;
+    const paragraphEffectiveTo = normalizeDate(paragraphRecord.항종료일자) ?? effectiveTo;
+    const paragraphRepealedAt = normalizeDate(paragraphRecord.항삭제일자) ?? repealedAt;
+    const normalizedParagraphNo = paragraphNo || null;
+    const paragraphEntries: OpenLawArticle[] = [];
 
-      const paragraph: OpenLawArticle = {
+    if (paragraphNo && paragraphBody) {
+      paragraphEntries.push({
         articleNo,
-        paragraph: paragraphNo,
+        paragraph: normalizedParagraphNo,
         item: null,
         kind: "paragraph",
         title,
@@ -85,95 +141,93 @@ function parseArticleNode(node: Record<string, unknown>): OpenLawArticle[] {
         effectiveTo: paragraphEffectiveTo,
         repealedAt: paragraphRepealedAt,
         articlePath: `${articleNo}/paragraph:${paragraphNo}`
-      };
+      });
+    }
 
-      const items = asArray(
-        paragraphRecord.items && (paragraphRecord.items as Record<string, unknown>).item
-      ).map((itemNode) => {
+    const items: OpenLawArticle[] = [];
+
+    for (const itemNode of asArray(paragraphRecord.호)) {
         const itemRecord = itemNode as Record<string, unknown>;
-        const itemNo = readText(itemRecord.itemNo) || null;
+        const itemNo = normalizeOrdinal(itemRecord.호번호);
+        const itemBody = readText(itemRecord.호내용);
 
-        return {
+        if (!itemNo || !itemBody) {
+          continue;
+        }
+
+        items.push({
           articleNo,
-          paragraph: paragraphNo,
+          paragraph: normalizedParagraphNo,
           item: itemNo,
           kind: "item" as const,
           title,
-          body: readText(itemRecord.body),
-          effectiveFrom: readText(itemRecord.effectiveFrom) || paragraphEffectiveFrom,
-          effectiveTo: readText(itemRecord.effectiveTo) || paragraphEffectiveTo,
-          repealedAt: readText(itemRecord.repealedAt) || paragraphRepealedAt,
-          articlePath: `${articleNo}/paragraph:${paragraphNo}/item:${itemNo}`
-        };
-      });
-
-      return [paragraph, ...items];
+          body: itemBody,
+          effectiveFrom: normalizeDate(itemRecord.호시행일자) ?? paragraphEffectiveFrom,
+          effectiveTo: normalizeDate(itemRecord.호종료일자) ?? paragraphEffectiveTo,
+          repealedAt: normalizeDate(itemRecord.호삭제일자) ?? paragraphRepealedAt,
+          articlePath: `${articleNo}/paragraph:${paragraphNo ?? "none"}/item:${itemNo}`
+        });
     }
-  );
+
+    return [...paragraphEntries, ...items];
+  });
 
   return [article, ...paragraphs];
 }
 
 export function parseSearchResponse(xml: string): SearchLawResult[] {
   const parsed = parser.parse(xml) as Record<string, unknown>;
-  const searchRoot =
-    (parsed.LawSearchResponse as Record<string, unknown> | undefined) ??
-    (parsed.response as Record<string, unknown> | undefined) ??
-    parsed;
-  const laws = asArray(
-    (searchRoot.laws as Record<string, unknown> | undefined)?.law ?? searchRoot.law
-  );
+  const searchRoot = (parsed.LawSearch as Record<string, unknown> | undefined) ?? parsed;
+  const laws = asArray(searchRoot.law);
 
   return laws.map((lawNode) => {
     const law = lawNode as Record<string, unknown>;
 
     return {
-      mst: readText(law.mst) || null,
-      lawId: readText(law.lawId) || null,
-      title: readText(law.title),
-      promulgationDate: readText(law.promulgationDate) || null,
-      enforcementDate: readText(law.enforcementDate) || null
+      mst: readText(law.법령일련번호) || null,
+      lawId: readText(law.법령ID) || null,
+      title: readText(law.법령명한글),
+      promulgationDate: normalizeDate(law.공포일자),
+      enforcementDate: normalizeDate(law.시행일자)
     };
   });
 }
 
 export function parseLawDetail(xml: string): ParsedLawDetail {
   const parsed = parser.parse(xml) as Record<string, unknown>;
-  const detailRoot =
-    (parsed.LawDetailResponse as Record<string, unknown> | undefined) ??
-    (parsed.response as Record<string, unknown> | undefined) ??
-    parsed;
-  const lawNode = (detailRoot.law as Record<string, unknown> | undefined) ?? {};
-  const articles = asArray(
-    (detailRoot.articles as Record<string, unknown> | undefined)?.article
-  ).flatMap((articleNode) => parseArticleNode(articleNode as Record<string, unknown>));
-  const appendices = asArray(
-    (detailRoot.appendices as Record<string, unknown> | undefined)?.appendix
-  ).map((appendixNode) => {
-    const appendix = appendixNode as Record<string, unknown>;
-    const label = readText(appendix.label);
+  const detailRoot = (parsed["법령"] as Record<string, unknown> | undefined) ?? parsed;
+  const basicInfo = (detailRoot["기본정보"] as Record<string, unknown> | undefined) ?? {};
+  const law = {
+    mst: null,
+    lawId: readText(basicInfo["법령ID"]) || null,
+    title: readText(basicInfo["법령명_한글"]),
+    shortTitle: readText(basicInfo["법령명약칭"]) || null,
+    promulgationDate: normalizeDate(basicInfo["공포일자"]),
+    enforcementDate: normalizeDate(basicInfo["시행일자"]),
+    sourceUrl: null
+  } satisfies OpenLawLawDocument;
+  const articleNodes = asArray((detailRoot["조문"] as Record<string, unknown> | undefined)?.["조문단위"]);
+  const articles = articleNodes.flatMap((articleNode) => parseArticleNode(articleNode as Record<string, unknown>));
+  const appendixContainers = asArray(detailRoot["별표"]);
+  const appendices = appendixContainers.flatMap((containerNode) =>
+    asArray((containerNode as Record<string, unknown>)["별표단위"]).map((appendixNode) => {
+      const appendix = appendixNode as Record<string, unknown>;
+      const label = formatAppendixLabel(appendix["별표번호"], appendix["별표가지번호"]);
 
-    return {
-      label,
-      title: readText(appendix.title),
-      body: readText(appendix.body),
-      effectiveFrom: readText(appendix.effectiveFrom) || null,
-      effectiveTo: readText(appendix.effectiveTo) || null,
-      articlePath: `appendix:${label}`,
-      kind: "appendix"
-    } satisfies OpenLawAppendix;
-  });
+      return {
+        label,
+        title: readText(appendix["별표제목"]),
+        body: readText(appendix["별표내용"]),
+        effectiveFrom: law.enforcementDate,
+        effectiveTo: null,
+        articlePath: `appendix:${label}`,
+        kind: "appendix"
+      } satisfies OpenLawAppendix;
+    })
+  );
 
   return {
-    law: {
-      mst: readText(lawNode.mst) || null,
-      lawId: readText(lawNode.lawId) || null,
-      title: readText(lawNode.title),
-      shortTitle: readText(lawNode.shortTitle) || null,
-      promulgationDate: readText(lawNode.promulgationDate) || null,
-      enforcementDate: readText(lawNode.enforcementDate) || null,
-      sourceUrl: readText(lawNode.sourceUrl) || null
-    } satisfies OpenLawLawDocument,
+    law,
     articles,
     appendices
   };

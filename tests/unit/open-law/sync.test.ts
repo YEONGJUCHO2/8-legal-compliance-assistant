@@ -123,7 +123,7 @@ describe("sync-laws targeted cache flow", () => {
     };
 
     const first = await runSyncLaws({
-      titles: ["산안법"],
+      titles: ["산업안전보건법 시행규칙"],
       referenceDate: "2025-01-01",
       oc: "test-oc",
       fetchImpl,
@@ -131,7 +131,7 @@ describe("sync-laws targeted cache flow", () => {
     });
 
     const second = await runSyncLaws({
-      titles: ["산안법"],
+      titles: ["산업안전보건법 시행규칙"],
       referenceDate: "2025-01-01",
       oc: "test-oc",
       fetchImpl,
@@ -140,10 +140,10 @@ describe("sync-laws targeted cache flow", () => {
 
     expect(first.documentsSynced).toBe(1);
     expect(memory.documents.size).toBe(1);
-    expect(memory.articles.size).toBe(6);
-    expect(memory.versions).toHaveLength(6);
+    expect(memory.articles.size).toBe(13);
+    expect(memory.versions).toHaveLength(13);
     expect(second.documentsSkippedBySourceHash).toBe(1);
-    expect(memory.versions).toHaveLength(6);
+    expect(memory.versions).toHaveLength(13);
   });
 
   test("appends a new version row when sanitized article content changes", async () => {
@@ -160,7 +160,7 @@ describe("sync-laws targeted cache flow", () => {
     };
 
     await runSyncLaws({
-      titles: ["산업안전보건법"],
+      titles: ["산업안전보건법 시행규칙"],
       referenceDate: "2025-01-01",
       oc: "test-oc",
       fetchImpl,
@@ -168,12 +168,12 @@ describe("sync-laws targeted cache flow", () => {
     });
 
     currentDetailXml = currentDetailXml.replace(
-      "사업주는 필요한 안전조치를 하여야 한다.",
-      "사업주는 강화된 안전조치를 하여야 한다."
+      "제4조(협조 요청)",
+      "제4조(강화된 협조 요청)"
     );
 
     const rerun = await runSyncLaws({
-      titles: ["산업안전보건법"],
+      titles: ["산업안전보건법 시행규칙"],
       referenceDate: "2025-01-01",
       oc: "test-oc",
       fetchImpl,
@@ -181,10 +181,10 @@ describe("sync-laws targeted cache flow", () => {
     });
 
     expect(rerun.versionRowsCreated).toBe(1);
-    expect(memory.versions).toHaveLength(7);
+    expect(memory.versions).toHaveLength(14);
     expect(
-      [...memory.articles.values()].find((article) => article.articleNo === "제10조" && article.kind === "article")
+      [...memory.articles.values()].find((article) => article.articleNo === "제4조" && article.kind === "article")
         ?.body
-    ).toContain("강화된 안전조치");
+    ).toContain("강화된 협조 요청");
   });
 });

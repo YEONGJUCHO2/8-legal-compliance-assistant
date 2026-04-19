@@ -11,18 +11,18 @@ describe("retrieve", () => {
     const hydrateSpy = vi.spyOn(storage, "hydrateArticles");
 
     const result = await retrieve(storage, {
-      query: "산안법 제10조 안전조치",
-      referenceDate: "2025-01-01",
-      snapshotHashes: ["snap-sanan-2"]
+      query: "산안법 시행규칙 제4조 협조 요청",
+      referenceDate: "2026-01-01",
+      snapshotHashes: ["snap-sanan-5"]
     });
 
     expect(result.strategy).toBe("targeted_cache");
     expect(result.emitted_disagreement_capable).toBe(true);
     expect(result.weak).toBe("strong");
     expect(result.candidates[0]).toMatchObject({
-      law_title: "산업안전보건법",
-      article_no: "제10조",
-      article_id: "sanan-2"
+      law_title: "산업안전보건법 시행규칙",
+      article_no: "제4조",
+      article_id: "sanan-5"
     });
     expect(result.candidates[0].score_components.cache_match).toBe(0.2);
     expect(hydrateSpy).toHaveBeenCalledTimes(1);
@@ -32,8 +32,8 @@ describe("retrieve", () => {
     const storage = createInMemoryStorage(loadFixtureArticles());
 
     const result = await retrieve(storage, {
-      query: "별표 1 프레스",
-      referenceDate: "2025-01-01"
+      query: "별표 1 건설업체 산업재해발생률",
+      referenceDate: "2026-01-01"
     });
 
     expect(result.candidates[0]).toMatchObject({

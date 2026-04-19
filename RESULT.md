@@ -129,3 +129,17 @@
 - C: session `tokenHash`를 in-memory/PG store 모두에서 unique하게 강제하고 `session_conflict`를 추가했으며, `006_auth_sessions_token_hash_unique.sql`로 업그레이드 DB도 제약을 보장하게 했습니다.
 - 검증: `rg -n "test\\.todo|\\.todo\\(" tests` 매치 없음
 - 검증: `npm run typecheck`, `npm run lint`, `npm test` (`72 files, 197 passed, 1 skipped`), `npm run build` 통과
+
+## open.law.go.kr 실 API 적응
+- 상태: 성공
+- 변경 파일: `src/lib/open-law/xml.ts`, `scripts/sync-laws.ts`
+- 변경 파일: `tests/fixtures/open-law/{san-an-search.xml,san-an-detail.xml,malicious-corpus.xml}`, `tests/unit/open-law/{xml,sync}.test.ts`
+- 변경 파일: `tests/unit/search/{fixture-data,retrieve,eval}.test.ts`, `tests/integration/ask-flow.test.ts`
+- 실 API 확인: `/tmp/open-law-samples/{search,detail,detail-regulation}.xml`로 `LawSearch`, `법령 > 기본정보/조문/부칙/별표` 구조와 `조문단위 > 항 > 호`, `별표 > 별표단위`를 확인했습니다.
+- 파서 변경: `법령일련번호/법령ID/법령명한글/공포일자/시행일자`를 실제 태그로 매핑하고, `조문번호+조문가지번호 -> 제N조/제N조의M`, `별표번호 -> 별표 N` 포맷으로 정규화했습니다.
+- sync 보정: title 검색 경로에서 search hit의 `mst`를 detail 결과에 보존했고, SQL store의 nullable key lookup 쿼리를 분기식으로 바꿔 실제 `--all` sync가 막히지 않게 했습니다.
+- 실 sync 결과: `targetsProcessed=6`, `documentsSynced=6`, `createdArticles=6319`, `updatedArticles=38`, `versionRowsCreated=6357`
+- DB 검증: `law_documents=6`, `law_articles=6319`, `law_article_versions=6357`
+- DB 검증: 산업안전보건법 1109 / 시행령 894 / 시행규칙 1522 / 안전보건기준 규칙 2630 / 중처법 75 / 중처법 시행령 89
+- 검증: `npm run typecheck` 통과, `npm run lint` 통과, `npm test` (`73 files, 200 passed, 1 skipped`) 통과, `npm run build` 통과
+- 주의: 실제 sync 중 sanitize logger가 `「」`, `①`, `■` 같은 문자 드롭 경고를 대량 출력했습니다. 적재는 완료됐지만 sanitizer 허용 문자셋은 후속 점검 가치가 있습니다.

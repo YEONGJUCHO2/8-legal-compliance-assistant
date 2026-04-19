@@ -1,18 +1,32 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<LawDetailResponse>
-  <law>
-    <mst>999</mst>
-    <lawId>MAL001</lawId>
-    <title>악성 테스트 법령</title>
-    <promulgationDate>2024-01-09</promulgationDate>
-    <enforcementDate>2024-01-09</enforcementDate>
-  </law>
-  <articles>
-    <article>
-      <articleNo>제99조</articleNo>
-      <title>악성 페이로드</title>
-      <body>정상 문장 &lt;script&gt;alert(1)&lt;/script&gt; &lt;iframe src="https://evil.example"&gt;&lt;/iframe&gt; data:text/html;base64,ZXZpbA== 개정이유: 삭제 onerror="hack()"</body>
-      <effectiveFrom>2024-01-09</effectiveFrom>
-    </article>
-  </articles>
-</LawDetailResponse>
+<법령>
+  <기본정보>
+    <법령ID>MAL001</법령ID>
+    <공포일자>20250530</공포일자>
+    <법령명_한글><![CDATA[악성 테스트 법령]]></법령명_한글>
+    <법령명약칭><![CDATA[]]></법령명약칭>
+    <시행일자>20250601</시행일자>
+    <별표편집여부>N</별표편집여부>
+  </기본정보>
+  <조문>
+    <조문단위 조문키="9999001">
+      <조문번호>99</조문번호>
+      <조문여부>조문</조문여부>
+      <조문제목><![CDATA[악성 페이로드]]></조문제목>
+      <조문시행일자>20250601</조문시행일자>
+      <조문변경여부>N</조문변경여부>
+      <조문내용><![CDATA[제99조(악성 페이로드) 정상 문장 <script>alert(1)</script> <iframe src="https://evil.example"></iframe> data:text/html;base64,ZXZpbA== 개정이유: 삭제 onerror="hack()"]]></조문내용>
+      <항>
+        <항번호><![CDATA[①]]></항번호>
+        <항내용><![CDATA[① payload를 인용하더라도 parser는 자유 텍스트로만 보관해야 한다.]]></항내용>
+      </항>
+    </조문단위>
+  </조문>
+  <부칙>
+    <부칙단위 부칙키="malicious-1">
+      <부칙공포일자>20250530</부칙공포일자>
+      <부칙공포번호>99999</부칙공포번호>
+      <부칙내용><![CDATA[부칙 <제99999호,2025.5.30> 이 법은 공포한 날부터 시행한다.]]></부칙내용>
+    </부칙단위>
+  </부칙>
+</법령>

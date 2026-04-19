@@ -199,6 +199,9 @@ jobs:
 - 외부 변호사 리뷰 발주 → JSON에 `lawyerVerified: true` 플래그 flip
 - `tests/unit/wedge-gold.test.ts` 의 "currently keeps lawyer-reviewed coverage at zero" 테스트는 검증 진행됨에 따라 `toBeGreaterThan(...)` 으로 업데이트
 
+### 3.2.1 Sanitizer 문자셋 점검 (🟡 권장)
+실제 `open.law.go.kr` 코퍼스 적재 시 `src/lib/open-law/sanitize.ts` 가 `「」`, `①`, `■`, 로마자 원문자, 괄호 기호 등을 drop 하며 경고를 대량 출력했음. MVP 6법령 6,319 조문 적재는 성공했지만 본문에서 의미 있는 기호(조문 구조 지시자, 참조 표시)가 사라졌을 수 있음. 변호사 리뷰 전에 허용 문자셋 확장 여부 결정 필요.
+
 ### 3.3 프라이버시 / 데이터 보관 정책
 - `assistant_runs` 은 append-only + 법적 책임 추적용 — 고객 질문·답변이 영구 보관됨. 삭제 요구 (GDPR 유사) 대응 프로세스 정의 필요
 - 로그 보관 기간 (Vercel 로그 드레인 기본 30일) → 장기 보관 필요 여부 결정

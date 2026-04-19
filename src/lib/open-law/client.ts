@@ -44,6 +44,10 @@ async function fetchXml({
   return response.text();
 }
 
+function toYyyymmdd(isoDate: string) {
+  return isoDate.replaceAll("-", "");
+}
+
 export async function searchLaws({
   query,
   referenceDate,
@@ -61,12 +65,18 @@ export async function searchLaws({
   fetchImpl?: OpenLawFetchImpl;
   timeoutMs?: number;
 }) {
+  // open.law.go.kr's `date` query param filters by 공포일자 (promulgation date) via
+  // exact-string match, which rejects almost every search we care about. We keep the
+  // referenceDate in the signature so callers can keep threading it, but do NOT ship
+  // it as `date` — the underlying search is already keyed by title and returns the
+  // current-in-force record first, which is what runSyncLaws selects from.
+  void referenceDate;
+
   const url = new URL(`${OPEN_LAW_BASE_URL}/lawSearch.do`);
   url.searchParams.set("OC", resolveOc(oc));
   url.searchParams.set("query", query);
   url.searchParams.set("target", target ?? "law");
   url.searchParams.set("type", type ?? "XML");
-  url.searchParams.set("date", referenceDate);
 
   return fetchXml({ url, fetchImpl, timeoutMs });
 }
@@ -90,10 +100,14 @@ export async function getLawDetail({
     throw new Error("Either mst or lawId is required for getLawDetail");
   }
 
+  // lawService.do requires `target=law` — without it the gateway returns 404. The
+  // old `date=<referenceDate>` param does not exist on the detail endpoint; the
+  // right knob for version selection is `efYd` (시행일자) in yyyymmdd form.
   const url = new URL(`${OPEN_LAW_BASE_URL}/lawService.do`);
   url.searchParams.set("OC", resolveOc(oc));
+  url.searchParams.set("target", "law");
   url.searchParams.set("type", "XML");
-  url.searchParams.set("date", referenceDate);
+  url.searchParams.set("efYd", toYyyymmdd(referenceDate));
 
   if (mst) {
     url.searchParams.set("MST", mst);

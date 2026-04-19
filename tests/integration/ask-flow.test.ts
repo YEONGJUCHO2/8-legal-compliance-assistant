@@ -124,12 +124,12 @@ describe("runQuery integration", () => {
   test("returns an answer and persists history for a normal ask", async () => {
     const { deps, user, historyStore } = await createDeps({
       mcp: createMcpClient({
-        disagreementArticleNos: ["제10조"]
+        disagreementArticleNos: ["제4조"]
       }),
       engine: createEngineAdapter(() => ({
-        verified_facts: ["프레스 작업 전 방호장치를 점검해야 한다."],
-        conclusion: "프레스 작업 전 점검이 필요합니다.",
-        explanation: "관련 조문이 안전조치를 요구합니다.",
+        verified_facts: ["관계 기관 협조 요청 범위는 시행규칙 제4조에 정리돼 있다."],
+        conclusion: "협조 요청 범위는 시행규칙 제4조를 먼저 보면 됩니다.",
+        explanation: "관련 조문이 협조 요청 가능 범위를 직접 규정합니다.",
         caution: "추가 사업장 기준을 확인하세요."
       }))
     });
@@ -138,7 +138,7 @@ describe("runQuery integration", () => {
       request: {
         mode: "ask",
         clientRequestId: "req-1",
-        question: "산안법 제10조 프레스 작업 안전조치가 궁금합니다.",
+        question: "산안법 시행규칙 제4조 협조 요청이 궁금합니다.",
         referenceDate: "2026-04-18"
       },
       user,
@@ -251,7 +251,7 @@ describe("runQuery integration", () => {
       request: {
         mode: "ask",
         clientRequestId: "req-5",
-        question: "산안법 제10조 안전조치",
+        question: "산안법 시행규칙 제4조 협조 요청",
         referenceDate: "2026-04-18"
       },
       user,
@@ -262,7 +262,7 @@ describe("runQuery integration", () => {
       request: {
         mode: "ask",
         clientRequestId: "req-5",
-        question: "산안법 제10조 안전조치",
+        question: "산안법 시행규칙 제4조 협조 요청",
         referenceDate: "2026-04-18"
       },
       user,
@@ -284,7 +284,7 @@ describe("runQuery integration", () => {
       request: {
         mode: "ask",
         clientRequestId: "req-6",
-        question: "산안법 제10조 안전조치",
+        question: "산안법 시행규칙 제4조 협조 요청",
         referenceDate: "2026-04-18"
       },
       user,
@@ -320,7 +320,7 @@ describe("runQuery integration", () => {
       request: {
         mode: "ask",
         clientRequestId: "req-7",
-        question: "산안법 제10조 안전조치",
+        question: "산안법 시행규칙 제4조 협조 요청",
         referenceDate: "2026-04-18"
       },
       user,
@@ -344,7 +344,7 @@ describe("runQuery integration", () => {
       request: {
         mode: "ask",
         clientRequestId: "req-8",
-        question: "산안법 제10조 안전조치",
+        question: "산안법 시행규칙 제4조 협조 요청",
         referenceDate: "2026-04-18",
         skipClarification: true
       },
@@ -367,7 +367,7 @@ describe("runQuery integration", () => {
       request: {
         mode: "ask",
         clientRequestId: "req-9",
-        question: "산안법 제10조 안전조치",
+        question: "산안법 시행규칙 제4조 협조 요청",
         referenceDate: "2026-04-10",
         skipClarification: true
       },

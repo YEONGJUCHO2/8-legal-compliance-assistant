@@ -3,6 +3,17 @@ CREATE EXTENSION IF NOT EXISTS citext;
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 CREATE EXTENSION IF NOT EXISTS unaccent;
 
+-- unaccent() ships as STABLE because its dictionary is configurable, which blocks
+-- its use in functional indexes. Wrap it in an IMMUTABLE SQL function pinned to
+-- the default dictionary so GIN/BTREE indexes can reference it.
+CREATE OR REPLACE FUNCTION immutable_unaccent(text)
+  RETURNS text
+  LANGUAGE sql
+  IMMUTABLE
+  PARALLEL SAFE
+  STRICT
+  AS $$ SELECT unaccent('unaccent'::regdictionary, $1) $$;
+
 CREATE TABLE IF NOT EXISTS app_users (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   internal_user_id UUID NOT NULL UNIQUE,
@@ -141,7 +152,7 @@ CREATE TABLE IF NOT EXISTS service_updates (
 
 CREATE INDEX IF NOT EXISTS ix_law_articles_body_tsv
   ON law_articles
-  USING gin (to_tsvector('simple', unaccent(body)));
+  USING gin (to_tsvector('simple', immutable_unaccent(body)));
 
 CREATE INDEX IF NOT EXISTS ix_law_articles_body_trgm
   ON law_articles
