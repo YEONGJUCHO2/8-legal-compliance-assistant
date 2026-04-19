@@ -1,0 +1,47 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "regions": ["icn1"],
+  "functions": {
+    "src/app/api/ask/route.ts": {
+      "runtime": "nodejs22.x",
+      "maxDuration": 60
+    },
+    "src/app/api/answer-with-current-law/route.ts": {
+      "runtime": "nodejs22.x",
+      "maxDuration": 60
+    },
+    "src/app/api/auth/request/route.ts": {
+      "runtime": "nodejs22.x",
+      "maxDuration": 30
+    },
+    "src/app/api/auth/callback/route.ts": {
+      "runtime": "nodejs22.x",
+      "maxDuration": 15
+    },
+    "src/app/api/export/route.ts": {
+      "runtime": "nodejs22.x",
+      "maxDuration": 30
+    },
+    "src/app/api/feedback/route.ts": {
+      "runtime": "nodejs22.x",
+      "maxDuration": 15
+    },
+    "src/app/api/history/route.ts": {
+      "runtime": "nodejs22.x",
+      "maxDuration": 15
+    },
+    "src/app/api/history/[runId]/route.ts": {
+      "runtime": "nodejs22.x",
+      "maxDuration": 15
+    },
+    "src/app/api/metrics/route.ts": {
+      "runtime": "nodejs22.x",
+      "maxDuration": 10
+    },
+    "src/app/api/service-updates/route.ts": {
+      "runtime": "nodejs22.x",
+      "maxDuration": 10
+    }
+  }
+}
