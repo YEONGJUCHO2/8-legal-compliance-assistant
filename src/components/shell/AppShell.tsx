@@ -3,7 +3,7 @@
 import { useMemo, useRef, useState } from "react";
 
 import type { AskRequest, AnswerEnvelope, AskResponse, HistoryListItem, HistorySnapshotResponse } from "@/lib/assistant/ask-schema";
-import { AuthExpiredError, getRun, postAsk, postExport, postFeedback, postRerun } from "@/lib/api-client";
+import { AuthExpiredError, getRun, postAsk, postExport, postFeedback, postLogout, postRerun } from "@/lib/api-client";
 
 import { ExpertReviewModal } from "@/components/expert/ExpertReviewModal";
 import { AskForm } from "@/components/form/AskForm";
@@ -167,8 +167,25 @@ export function AppShell({
       <ServiceUpdateStrip update={serviceUpdate} />
 
       <section className="app-shell__hero">
-        <h1>{shellTitle}</h1>
-        <p>기준일과 검증 상태를 분리해 보여 주는 컴플라이언스 트리아지 인터페이스입니다.</p>
+        <div className="app-shell__hero-row">
+          <div>
+            <h1>{shellTitle}</h1>
+            <p>기준일과 검증 상태를 분리해 보여 주는 컴플라이언스 트리아지 인터페이스입니다.</p>
+          </div>
+          <button
+            type="button"
+            className="app-shell__logout"
+            onClick={() => {
+              void postLogout().catch(() => {
+                if (typeof window !== "undefined") {
+                  window.location.href = "/login";
+                }
+              });
+            }}
+          >
+            로그아웃
+          </button>
+        </div>
       </section>
 
       {history.length === 0 ? <OnboardingPanel /> : null}

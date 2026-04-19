@@ -133,3 +133,21 @@ export async function postExport(
     exportResponseSchema
   );
 }
+
+export async function postLogout(): Promise<void> {
+  const response = await fetch("/api/auth/logout", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json"
+    },
+    credentials: "same-origin"
+  });
+
+  if (!response.ok) {
+    throw new Error(`logout_failed: status=${response.status}`);
+  }
+
+  if (typeof window !== "undefined") {
+    window.location.href = "/login";
+  }
+}

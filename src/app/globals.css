@@ -152,6 +152,28 @@ pre {
   padding: var(--spacing-5);
 }
 
+.app-shell__hero-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--spacing-3);
+}
+
+.app-shell__logout {
+  align-self: flex-start;
+  border: 1px solid var(--color-border);
+  background: transparent;
+  border-radius: 12px;
+  padding: 0.5rem 0.875rem;
+  font: var(--type-caption);
+  cursor: pointer;
+  color: var(--color-text-muted, inherit);
+}
+
+.app-shell__logout:hover {
+  background: var(--color-surface-muted, rgba(0, 0, 0, 0.04));
+}
+
 .panel {
   display: grid;
   gap: var(--spacing-3);
