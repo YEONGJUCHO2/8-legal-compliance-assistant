@@ -125,12 +125,9 @@ export async function createRegressionDeps(overrides?: Partial<AssistantDeps>): 
     ...overrides
   };
 
-  deps.authStore = authStore;
-  deps.historyStore = historyStore;
-
   return {
     user,
     deps,
-    historyStore
+    historyStore: deps.historyStore
   };
 }
