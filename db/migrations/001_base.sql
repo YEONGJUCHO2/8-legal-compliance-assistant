@@ -4,15 +4,17 @@ CREATE EXTENSION IF NOT EXISTS pg_trgm;
 CREATE EXTENSION IF NOT EXISTS unaccent;
 
 -- unaccent() ships as STABLE because its dictionary is configurable, which blocks
--- its use in functional indexes. Wrap it in an IMMUTABLE SQL function pinned to
--- the default dictionary so GIN/BTREE indexes can reference it.
+-- its use in functional indexes. Wrap it in an IMMUTABLE SQL function so GIN/BTREE
+-- indexes can reference it. The 1-arg form uses the default dictionary; managed
+-- Postgres hosts (Neon, Supabase) may not expose `unaccent::regdictionary` directly.
 CREATE OR REPLACE FUNCTION immutable_unaccent(text)
   RETURNS text
   LANGUAGE sql
   IMMUTABLE
   PARALLEL SAFE
   STRICT
-  AS $$ SELECT unaccent('unaccent'::regdictionary, $1) $$;
+  SET search_path = public
+  AS $$ SELECT public.unaccent($1) $$;
 
 CREATE TABLE IF NOT EXISTS app_users (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
