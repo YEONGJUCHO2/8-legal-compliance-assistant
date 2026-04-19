@@ -26,6 +26,7 @@ export interface CreateAnthropicAdapterOptions {
   sessionStore?: EngineSessionStore;
   now?: () => Date;
   sessionTtlMs?: number;
+  deadlineMs?: number;
 }
 
 function buildMessagesRequest({
@@ -111,6 +112,10 @@ export function createAnthropicAdapter(options: CreateAnthropicAdapterOptions): 
               "x-api-key": options.apiKey,
               "anthropic-version": "2023-06-01"
             },
+            signal:
+              (input.deadlineMs ?? options.deadlineMs) && typeof AbortSignal.timeout === "function"
+                ? AbortSignal.timeout(input.deadlineMs ?? options.deadlineMs ?? 0)
+                : undefined,
             body: JSON.stringify(
               buildMessagesRequest({
                 model: options.model ?? DEFAULT_MODEL,

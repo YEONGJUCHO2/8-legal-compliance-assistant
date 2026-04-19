@@ -150,6 +150,8 @@ export interface QuestionHistoryRow {
   reference_date_confirmed: boolean;
   engine_provider: EngineProvider;
   schema_retry_count: number;
+  query_rewrite_terms?: string[] | null;
+  query_rewrite_intent?: string | null;
   created_at: ISODateTime;
 }
 

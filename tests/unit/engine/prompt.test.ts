@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { buildPrompt } from "@/lib/assistant/engine/prompt";
+import { buildPrompt, buildQueryRewritePrompt } from "@/lib/assistant/engine/prompt";
 
 import { createFixtureRetrieval } from "./fixture-data";
 
@@ -51,5 +51,19 @@ describe("buildPrompt", () => {
 
     expect(prompt.system).toContain("Reference date: 2025-02-14");
     expect(prompt.referenceDate).toBe("2025-02-14");
+  });
+
+  test("builds a dedicated librarian prompt for query rewrite", () => {
+    const prompt = buildQueryRewritePrompt({
+      question: "공구리를 치는데 적절한 안전조치 사항을 알려줘",
+      referenceDate: "2026-04-19"
+    });
+
+    expect(prompt.system).toContain("당신은 한국 산업안전보건 법령 검색을 돕는 사서입니다.");
+    expect(prompt.system).toContain("현장 속어·은어·지명·회사명·설비명·원문 그대로의 단어는 법령 공식 용어로 치환");
+    expect(prompt.user).toContain("기준일: 2026-04-19");
+    expect(prompt.user).toContain("질문: 공구리를 치는데 적절한 안전조치 사항을 알려줘");
+    expect(prompt.schemaRef).toBe("query_rewrite");
+    expect(prompt.citations).toEqual([]);
   });
 });

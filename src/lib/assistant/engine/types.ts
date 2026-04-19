@@ -2,8 +2,8 @@ import type {
   AnswerModuleOutput,
   ClarifyOutput,
   EngineSchemaRef,
-  EngineSchemaRefs,
   NoMatchOutput,
+  QueryRewriteOutput,
   SchemaErrorOutput,
   VerificationPendingOutput
 } from "@/lib/assistant/schemas";
@@ -14,6 +14,7 @@ export type EngineResponse =
   | AnswerModuleOutput
   | ClarifyOutput
   | NoMatchOutput
+  | QueryRewriteOutput
   | SchemaErrorOutput
   | VerificationPendingOutput;
 
@@ -39,7 +40,8 @@ export interface GenerateInput {
   sessionId?: string;
   userId: string;
   prompt: EnginePrompt;
-  schemaRef: keyof EngineSchemaRefs;
+  schemaRef: EngineSchemaRef;
+  deadlineMs?: number;
 }
 
 export interface GenerateOutput {
@@ -58,6 +60,7 @@ export type {
   ClarifyOutput,
   EngineSchemaRef,
   NoMatchOutput,
+  QueryRewriteOutput,
   SchemaErrorOutput,
   VerificationPendingOutput
 };

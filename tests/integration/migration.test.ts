@@ -83,7 +83,9 @@ test("base migrations apply idempotently on a clean database", async ({ skip }) 
           'caution',
           'changed_since_created',
           'reference_date_confirmed',
-          'response_json'
+          'response_json',
+          'query_rewrite_terms',
+          'query_rewrite_intent'
         )
       ORDER BY column_name
     `;
@@ -95,6 +97,8 @@ test("base migrations apply idempotently on a clean database", async ({ skip }) 
       "conclusion",
       "explanation",
       "normalized_query",
+      "query_rewrite_intent",
+      "query_rewrite_terms",
       "reference_date_confirmed",
       "response_json",
       "rerun_from_run_id"
@@ -148,7 +152,8 @@ test("base migrations apply idempotently on a clean database", async ({ skip }) 
       "003_postgres_concrete_wiring.sql",
       "004_runtime_state.sql",
       "005_history_citation_denormalization.sql",
-      "006_auth_sessions_token_hash_unique.sql"
+      "006_auth_sessions_token_hash_unique.sql",
+      "007_assistant_runs_query_rewrite.sql"
     ]);
   } catch (error) {
     skip(

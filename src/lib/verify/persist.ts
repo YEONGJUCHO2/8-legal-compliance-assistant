@@ -3,12 +3,17 @@ import type { QuestionHistoryCitationRow } from "@/lib/db/rows";
 import type { VerifiedCitation } from "./types";
 
 const PENDING_RUN_ID = "phase-07-persist-pending";
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function toPersistedLawId(lawId: string) {
+  return UUID_PATTERN.test(lawId) ? lawId : null;
+}
 
 export function buildCitationPersistence(verified: VerifiedCitation[]): QuestionHistoryCitationRow[] {
   return verified.map((citation, index) => ({
     id: index + 1,
     run_id: PENDING_RUN_ID,
-    law_id: citation.lawId,
+    law_id: toPersistedLawId(citation.lawId),
     article_id: citation.id,
     article_version_id: citation.articleVersionId,
     quote: citation.rendered_from_verification ? citation.mcpBody ?? citation.localBody : citation.localBody,

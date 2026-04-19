@@ -5,6 +5,7 @@ import { buildPrompt } from "@/lib/assistant/engine/prompt";
 import { resolveBehaviorVersion } from "@/lib/behavior-version";
 import { createLogger, logAssistantRunEvent, withRequestContext } from "@/lib/logging";
 import { recordRunMetrics } from "@/lib/metrics/assistant-metrics";
+import { mergeQueryRewriteHints, rewriteQuery } from "@/lib/assistant/query-rewrite";
 import { createInMemoryRateLimitStore, checkRateLimit } from "@/lib/rate-limit";
 import { verifyCitations } from "@/lib/verify/engine";
 import { buildCitationPersistence } from "@/lib/verify/persist";
@@ -16,7 +17,6 @@ import { detectSuspiciousDateHint } from "./date-gate";
 import { checkIdempotency, computePayloadHash } from "./idempotency";
 import { splitIntents } from "./intent-split";
 
-const VERIFY_BUDGET_MS = 3000;
 const VERIFY_CONCURRENCY_CAP = 5;
 const ROUTE_MAX_DURATION_MS = 60_000;
 const IDEMPOTENCY_WINDOW_MS = 24 * 60 * 60 * 1000;
@@ -44,6 +44,8 @@ function buildRunRow(input: {
   schemaRetryCount?: number;
   rerunFromRunId?: string | null;
   engineProvider?: QuestionHistoryRow["engine_provider"];
+  queryRewriteTerms?: string[] | null;
+  queryRewriteIntent?: string | null;
 }) {
   return {
     id: input.runId,
@@ -64,6 +66,8 @@ function buildRunRow(input: {
     reference_date_confirmed: input.request.clarificationResponses?.dateConfirmed === "true",
     engine_provider: input.engineProvider ?? "anthropic",
     schema_retry_count: input.schemaRetryCount ?? 0,
+    query_rewrite_terms: input.queryRewriteTerms ?? null,
+    query_rewrite_intent: input.queryRewriteIntent ?? null,
     created_at: input.now
   } satisfies QuestionHistoryRow;
 }
@@ -218,6 +222,94 @@ function buildVerificationPendingResponse(runId: string, answer?: AnswerEnvelope
         strength: "verification_pending"
       } as AnswerEnvelope & { strength: "verification_pending" })
   };
+}
+
+function isEngineTimeoutLikeError(error: unknown) {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  if ("code" in error && error.code === "engine_timeout") {
+    return true;
+  }
+
+  if ("name" in error && error.name === "AbortError") {
+    return true;
+  }
+
+  return "message" in error && typeof error.message === "string" && /timeout/i.test(error.message);
+}
+
+function compactCitationText(citation: VerifiedCitation, maxLength = 90) {
+  const source =
+    citation.rendered_from_verification && citation.mcpBody ? citation.mcpBody : citation.localBody;
+
+  return source.replace(/\s+/g, " ").trim().slice(0, maxLength);
+}
+
+function buildEngineTimeoutFallbackAnswer(input: {
+  runId: string;
+  request: Extract<AskRequest, { mode: "ask" | "rerun_current_law" }> & {
+    question: string;
+    referenceDate: string;
+  };
+  behaviorVersion: string;
+  verification: VerificationOutput;
+  verified: VerifiedCitation[];
+  answeredIntents: string[];
+  unansweredIntents: string[];
+}) {
+  const topCitations = input.verified.slice(0, 3);
+  const leadCitation = topCitations[0];
+  const uniqueLawTitles = Array.from(new Set(topCitations.map((citation) => citation.lawTitle)));
+  const verifiedFacts = topCitations.map(
+    (citation) => `${citation.lawTitle} ${citation.articleNo}: ${compactCitationText(citation, 70)}`
+  );
+  const explanation =
+    topCitations.length > 0
+      ? topCitations
+          .map((citation) => `${citation.lawTitle} ${citation.articleNo}: ${compactCitationText(citation)}`)
+          .join(" ")
+      : "검색된 조문 후보를 우선 검토해 주세요.";
+  const lawSections =
+    uniqueLawTitles.length > 0
+      ? uniqueLawTitles.map((lawTitle) => {
+          const citation = topCitations.find((entry) => entry.lawTitle === lawTitle) ?? topCitations[0];
+
+          return {
+            law_title: lawTitle,
+            summary: citation ? `${citation.articleNo}: ${compactCitationText(citation, 60)}` : "관련 조문 검토 필요",
+            why_it_applies: "검색된 조문이 질문과 직접 연결된 우선 검토 대상으로 선택되었습니다."
+          };
+        })
+      : undefined;
+  const collapsedLawSummary =
+    uniqueLawTitles.length > 0 ? `${uniqueLawTitles.join(", ")} 관련 조문을 우선 검토 대상으로 묶었습니다.` : undefined;
+  const conclusion = leadCitation
+    ? `${input.request.referenceDate} 기준 관련 조문은 ${leadCitation.lawTitle} ${leadCitation.articleNo}${
+        topCitations.length > 1 ? ` 등 ${topCitations.length}개` : ""
+      }입니다. 엔진 응답이 지연되어 검증 보류 상태로 제공합니다.`
+    : `${input.request.referenceDate} 기준 관련 조문을 찾았지만 엔진 응답이 지연되어 검증 보류 상태로 제공합니다.`;
+
+  return buildAnswerEnvelope({
+    runId: input.runId,
+    request: input.request,
+    behaviorVersion: input.behaviorVersion,
+    verified: input.verified,
+    verification: input.verification,
+    answer: {
+      verified_facts: verifiedFacts.length > 0 ? verifiedFacts : ["검색된 조문 후보를 우선 확인해 주세요."],
+      conclusion,
+      explanation,
+      caution: "자동 서술 생성이 지연되었습니다. 인용 조문 원문과 현장 조건을 함께 확인한 뒤 적용하세요.",
+      answered_scope: input.answeredIntents,
+      unanswered_scope: input.unansweredIntents.length > 0 ? input.unansweredIntents : undefined,
+      collapsed_law_summary: collapsedLawSummary,
+      law_sections: lawSections
+    },
+    answeredScopeFallback: input.answeredIntents,
+    unansweredScopeFallback: input.unansweredIntents.length > 0 ? input.unansweredIntents : undefined
+  });
 }
 
 function buildRateLimitedResponse(retryAfterMs: number): Extract<AskResponse, { kind: "rate_limited" }> {
@@ -376,6 +468,17 @@ export async function runQuery({
     lexical_score?: number;
     combined_score?: number;
   }> = [];
+  let queryRewriteTerms: string[] | null = null;
+  let queryRewriteIntent: string | null = null;
+  const candidateCap = deps.runtimeConfig?.retrievalCandidateCap ?? 5;
+  const buildStoredRun = (
+    input: Omit<Parameters<typeof buildRunRow>[0], "queryRewriteTerms" | "queryRewriteIntent">
+  ) =>
+    buildRunRow({
+      ...input,
+      queryRewriteTerms,
+      queryRewriteIntent
+    });
 
   const emitRunEvent = ({
     run,
@@ -482,7 +585,7 @@ export async function runQuery({
       message: "요청이 취소되었습니다."
     };
     return persistOutcome({
-      run: buildRunRow({
+      run: buildStoredRun({
         runId,
         userId: authedUser.id,
         request,
@@ -526,7 +629,7 @@ export async function runQuery({
       reason: dateGate.reason
     };
     return persistOutcome({
-      run: buildRunRow({
+      run: buildStoredRun({
         runId,
         userId: authedUser.id,
         request,
@@ -541,6 +644,18 @@ export async function runQuery({
     });
   }
 
+  const rewrite = await rewriteQuery({
+    engine: deps.engine,
+    userId: authedUser.id,
+    sessionId: request.sessionId,
+    question: request.question,
+    referenceDate: request.referenceDate,
+    logger,
+    deadlineMs: deps.runtimeConfig?.queryRewriteDeadlineMs
+  });
+  queryRewriteTerms = rewrite?.legal_terms ?? null;
+  queryRewriteIntent = rewrite?.intent_summary ?? null;
+
   const intents = splitIntents(request.question);
   const answeredIntents: string[] = [];
   const unansweredIntents: string[] = [];
@@ -548,9 +663,27 @@ export async function runQuery({
   const retrievalStartedAt = performanceNow();
 
   for (const intent of intents) {
+    const mergedHints = mergeQueryRewriteHints({
+      question: intent.subQuestion,
+      rewrite
+    });
+    logger.info(
+      {
+        rewriteTerms: mergedHints.rewriteTerms,
+        lawHints: mergedHints.lawHints,
+        articleHints: mergedHints.articleNumberHints
+      },
+      "query_rewrite.applied"
+    );
     const result = await deps.retrieveFn(deps.storage, {
       query: intent.subQuestion,
-      referenceDate: request.referenceDate
+      referenceDate: request.referenceDate,
+      limit: candidateCap,
+      queryHints: {
+        tokens: mergedHints.tokens,
+        lawHints: mergedHints.lawHints,
+        articleNumberHints: mergedHints.articleNumberHints
+      }
     });
 
     if (result.weak === "empty") {
@@ -561,7 +694,7 @@ export async function runQuery({
     if ((result.weak === "weak" || result.weak === "ambiguous") && request.skipClarification !== true) {
       const response = buildClarifyResponse(runId, "적용 시점, 작업 공정, 설비명을 조금 더 구체적으로 알려주세요.", result.weak === "ambiguous" ? "ambiguous_law" : "missing_fact");
       return persistOutcome({
-        run: buildRunRow({
+        run: buildStoredRun({
           runId,
           userId: authedUser.id,
           request,
@@ -588,7 +721,7 @@ export async function runQuery({
   if (retrievalResults.length === 0) {
     const response = buildNoMatchResponse(runId);
     return persistOutcome({
-      run: buildRunRow({
+      run: buildStoredRun({
         runId,
         userId: authedUser.id,
         request,
@@ -604,13 +737,14 @@ export async function runQuery({
   }
 
   const mergedCandidates = retrievalResults.flatMap((result) => result.candidates);
-  retrievalScores = buildRetrievalScores(mergedCandidates);
-  const verificationInput = dedupeVerificationInputs(mergedCandidates);
+  const cappedCandidates = mergedCandidates.slice(0, candidateCap);
+  retrievalScores = buildRetrievalScores(cappedCandidates);
+  const verificationInput = dedupeVerificationInputs(cappedCandidates);
   const verificationStartedAt = performanceNow();
   verification = await verifyCitations(deps.mcp, {
     citations: verificationInput,
     referenceDate: request.referenceDate,
-    budgetMs: VERIFY_BUDGET_MS
+    budgetMs: deps.runtimeConfig?.mcpVerifyDeadlineMs ?? 8_000
   });
   stageBurn.verification = performanceNow() - verificationStartedAt;
 
@@ -621,7 +755,7 @@ export async function runQuery({
       message: "요청이 취소되었습니다."
     };
     return persistOutcome({
-      run: buildRunRow({
+      run: buildStoredRun({
         runId,
         userId: authedUser.id,
         request,
@@ -640,7 +774,7 @@ export async function runQuery({
     userQuestion: request.question,
     referenceDate: request.referenceDate,
     retrieval: {
-      candidates: mergedCandidates,
+      candidates: cappedCandidates,
       strategy: "targeted_cache",
       emitted_disagreement_capable: true,
       weak: retrievalResults[0].weak
@@ -649,14 +783,65 @@ export async function runQuery({
     intent: request.mode
   });
   const generationStartedAt = performanceNow();
-  const engineResult = await deps.engine.generate({
-    userId: authedUser.id,
-    sessionId: request.sessionId,
-    prompt,
-    schemaRef: "answer"
-  });
-  engineLatencyMs = performanceNow() - generationStartedAt;
-  stageBurn.generation = engineLatencyMs;
+  let engineResult;
+
+  try {
+    engineResult = await deps.engine.generate({
+      userId: authedUser.id,
+      sessionId: request.sessionId,
+      prompt,
+      schemaRef: "answer",
+      deadlineMs: deps.runtimeConfig?.engineDeadlineMs
+    });
+    engineLatencyMs = performanceNow() - generationStartedAt;
+    stageBurn.generation = engineLatencyMs;
+  } catch (error) {
+    engineLatencyMs = performanceNow() - generationStartedAt;
+    stageBurn.generation = engineLatencyMs;
+
+    if (!isEngineTimeoutLikeError(error)) {
+      throw error;
+    }
+
+    logger.warn(
+      {
+        elapsedMs: engineLatencyMs,
+        error: error instanceof Error ? error.message : "engine_timeout",
+        candidateCount: cappedCandidates.length
+      },
+      "answer_generation.timeout_fallback"
+    );
+
+    const fallbackAnswer = buildEngineTimeoutFallbackAnswer({
+      runId,
+      request,
+      behaviorVersion,
+      verification,
+      verified: verification.citations,
+      answeredIntents,
+      unansweredIntents
+    });
+    const response = buildVerificationPendingResponse(runId, fallbackAnswer);
+
+    return persistOutcome({
+      run: buildStoredRun({
+        runId,
+        userId: authedUser.id,
+        request,
+        now: nowIso,
+        behaviorVersion,
+        status: "verification_pending",
+        answerStrength: "verification_pending",
+        conclusion: fallbackAnswer.conclusion,
+        explanation: fallbackAnswer.explanation,
+        caution: fallbackAnswer.caution,
+        engineProvider: deps.engine.provider
+      }),
+      response,
+      citations: verification.citations,
+      errorCode: "engine_timeout_fallback"
+    });
+  }
 
   if ("type" in engineResult.response && engineResult.response.type === "schema_error") {
     const response: AskResponse = {
@@ -666,7 +851,7 @@ export async function runQuery({
       schemaRetryCount: 2
     };
     return persistOutcome({
-      run: buildRunRow({
+      run: buildStoredRun({
         runId,
         userId: authedUser.id,
         request,
@@ -685,7 +870,7 @@ export async function runQuery({
   if ("type" in engineResult.response && engineResult.response.type === "clarify") {
     const response = buildClarifyResponse(runId, engineResult.response.question, engineResult.response.reasonCode);
     return persistOutcome({
-      run: buildRunRow({
+      run: buildStoredRun({
         runId,
         userId: authedUser.id,
         request,
@@ -708,7 +893,7 @@ export async function runQuery({
       nextActions: engineResult.response.next_actions
     };
     return persistOutcome({
-      run: buildRunRow({
+      run: buildStoredRun({
         runId,
         userId: authedUser.id,
         request,
@@ -726,7 +911,7 @@ export async function runQuery({
   if ("type" in engineResult.response && engineResult.response.type === "verification_pending") {
     const response = buildVerificationPendingResponse(runId);
     return persistOutcome({
-      run: buildRunRow({
+      run: buildStoredRun({
         runId,
         userId: authedUser.id,
         request,
@@ -738,6 +923,30 @@ export async function runQuery({
       }),
       response,
       errorCode: "engine_verification_pending"
+    });
+  }
+
+  if (!("verified_facts" in engineResult.response)) {
+    const response: AskResponse = {
+      kind: "schema_error",
+      runId,
+      message: "Engine response did not satisfy the required answer schema.",
+      schemaRetryCount: 2
+    };
+    return persistOutcome({
+      run: buildStoredRun({
+        runId,
+        userId: authedUser.id,
+        request,
+        now: nowIso,
+        behaviorVersion,
+        status: "schema_error",
+        conclusion: response.message,
+        schemaRetryCount: 2,
+        engineProvider: deps.engine.provider
+      }),
+      response,
+      errorCode: "schema_error"
     });
   }
 
@@ -765,7 +974,7 @@ export async function runQuery({
   const strength = finalResponse.kind === "verification_pending" ? "verification_pending" : answer.strength;
 
   return persistOutcome({
-    run: buildRunRow({
+    run: buildStoredRun({
       runId,
       userId: authedUser.id,
       request,

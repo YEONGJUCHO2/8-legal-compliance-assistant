@@ -23,6 +23,8 @@ const runRow: QuestionHistoryRow = {
   reference_date_confirmed: true,
   engine_provider: "anthropic",
   schema_retry_count: 0,
+  query_rewrite_terms: null,
+  query_rewrite_intent: null,
   created_at: "2026-04-18T00:00:00.000Z"
 };
 

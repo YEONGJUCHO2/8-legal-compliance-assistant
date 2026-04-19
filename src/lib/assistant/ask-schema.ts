@@ -170,6 +170,8 @@ const questionHistoryRowSchema = z.object({
   reference_date_confirmed: z.boolean(),
   engine_provider: z.enum(["codex", "anthropic"]),
   schema_retry_count: z.number().int(),
+  query_rewrite_terms: z.array(z.string()).nullable().optional(),
+  query_rewrite_intent: z.string().nullable().optional(),
   created_at: isoDateTimeSchema
 });
 

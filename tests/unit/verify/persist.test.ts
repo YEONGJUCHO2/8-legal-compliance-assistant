@@ -31,7 +31,7 @@ describe("buildCitationPersistence", () => {
 
     expect(rows).toHaveLength(3);
     expect(rows[0]).toMatchObject({
-      law_id: "law-1",
+      law_id: null,
       article_id: "article-1",
       article_version_id: "article-version-1",
       quote: "사업주는 필요한 안전조치를 하여야 한다.",
@@ -44,7 +44,7 @@ describe("buildCitationPersistence", () => {
       answer_strength_downgrade: null
     });
     expect(rows[1]).toMatchObject({
-      law_id: "law-1",
+      law_id: null,
       article_id: "article-2",
       quote: "사업주는 강화된 안전조치를 하여야 한다.",
       law_title: "산업안전보건법",
@@ -57,7 +57,7 @@ describe("buildCitationPersistence", () => {
       changed_summary: "text_changed"
     });
     expect(rows[2]).toMatchObject({
-      law_id: "law-1",
+      law_id: null,
       article_id: "article-3",
       law_title: "산업안전보건법",
       article_number: "제10조",
@@ -66,5 +66,15 @@ describe("buildCitationPersistence", () => {
       rendered_from_verification: false,
       changed_summary: "article_missing"
     });
+  });
+
+  test("preserves law_id when it is already a UUID", () => {
+    const rows = buildCitationPersistence([
+      createVerifiedCitation({
+        lawId: "2ef6fa86-b691-4f4a-b93d-36fd5d7ebf8c"
+      })
+    ]);
+
+    expect(rows[0]?.law_id).toBe("2ef6fa86-b691-4f4a-b93d-36fd5d7ebf8c");
   });
 });

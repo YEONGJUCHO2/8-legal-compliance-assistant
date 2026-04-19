@@ -16,6 +16,8 @@ const envSchema = z
     AUTH_FROM_EMAIL: z.string().email().optional(),
     METRICS_ACCESS_TOKEN: z.string().min(1).optional(),
     SMTP_URL: z.string().min(1).optional(),
+    QUERY_REWRITE_DEADLINE_MS: z.coerce.number().int().positive().default(10_000),
+    RETRIEVAL_CANDIDATE_CAP: z.coerce.number().int().positive().default(5),
     RETRIEVAL_DEADLINE_MS: z.coerce.number().int().positive(),
     ENGINE_DEADLINE_MS: z.coerce.number().int().positive(),
     MCP_VERIFY_DEADLINE_MS: z.coerce.number().int().positive(),
@@ -24,6 +26,7 @@ const envSchema = z
   })
   .superRefine((env, ctx) => {
     const totalDeadlineMs =
+      env.QUERY_REWRITE_DEADLINE_MS +
       env.RETRIEVAL_DEADLINE_MS +
       env.ENGINE_DEADLINE_MS +
       env.MCP_VERIFY_DEADLINE_MS +
@@ -34,7 +37,7 @@ const envSchema = z
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message:
-          "Deadline budget exceeds route maxDuration. Reconcile retrieval, engine, verification, and safety margins.",
+          "Deadline budget exceeds route maxDuration. Reconcile query rewrite, retrieval, engine, verification, and safety margins.",
         path: ["ROUTE_MAX_DURATION_SECONDS"],
       });
     }

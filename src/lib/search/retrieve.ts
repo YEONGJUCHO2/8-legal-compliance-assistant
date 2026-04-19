@@ -2,7 +2,7 @@ import { filterByEffectiveDate } from "@/lib/search/filter";
 import { normalizeQuery } from "@/lib/search/normalize-query";
 import { rankCandidates } from "@/lib/search/rank";
 import type { ArticleCandidate, LawStorage } from "@/lib/search/storage";
-import type { RetrievalResult, WeakEvidenceSignal } from "@/lib/search/types";
+import type { ArticleNumberHint, RetrievalResult, WeakEvidenceSignal } from "@/lib/search/types";
 import { detectWeakEvidence } from "@/lib/search/weak-evidence";
 
 function mergeCandidates(candidates: ArticleCandidate[]) {
@@ -34,15 +34,29 @@ export async function retrieve(
     query,
     referenceDate,
     limit = 10,
-    snapshotHashes = []
+    snapshotHashes = [],
+    queryHints
   }: {
     query: string;
     referenceDate: string;
     limit?: number;
     snapshotHashes?: string[];
+    queryHints?: {
+      tokens: string[];
+      lawHints: string[];
+      articleNumberHints: ArticleNumberHint[];
+    };
   }
 ): Promise<RetrievalResult & { weak: WeakEvidenceSignal }> {
-  const normalized = normalizeQuery(query);
+  const normalizedBase = normalizeQuery(query);
+  const normalized = queryHints
+    ? {
+        ...normalizedBase,
+        tokens: queryHints.tokens,
+        lawHints: queryHints.lawHints,
+        articleNumberHints: queryHints.articleNumberHints
+      }
+    : normalizedBase;
 
   const [lexicalCandidates, numberCandidateGroups, snapshotCandidates] = await Promise.all([
     storage.findArticlesByLexical(normalized.tokens, {

@@ -20,11 +20,11 @@ import { loadFixtureArticles } from "../unit/search/fixture-data";
 function createEngineAdapter(responseFactory: (input: { schemaRef: string }) => unknown): EngineAdapter {
   return {
     provider: "anthropic",
-    async generate() {
+    async generate(input) {
       return {
         sessionId: "engine-session-1",
         schemaRetries: 0,
-        response: responseFactory({ schemaRef: "answer" }) as never
+        response: responseFactory({ schemaRef: input.schemaRef }) as never
       };
     }
   };
@@ -156,6 +156,55 @@ describe("runQuery integration", () => {
     const history = await historyStore.listRuns(user.id);
     expect(history.history).toHaveLength(1);
     expect(history.history[0].status).toBe("answered");
+  });
+
+  test("returns verification_pending with a structured fallback answer when answer generation times out", async () => {
+    const { deps, user, historyStore } = await createDeps({
+      engine: {
+        provider: "codex",
+        async generate(input) {
+          if (input.schemaRef === "query_rewrite") {
+            return {
+              sessionId: "engine-session-1",
+              schemaRetries: 0,
+              response: {
+                legal_terms: ["시행규칙", "협조 요청", "관계 기관"],
+                law_hints: ["산업안전보건법 시행규칙"],
+                article_hints: ["제4조"],
+                intent_summary: "시행규칙 제4조의 협조 요청 범위를 확인"
+              }
+            };
+          }
+
+          throw Object.assign(new Error("The operation was aborted due to timeout"), {
+            code: "engine_failure",
+            name: "CodexDaemonError"
+          });
+        }
+      }
+    });
+
+    const response = await runQuery({
+      request: {
+        mode: "ask",
+        clientRequestId: "req-engine-timeout",
+        question: "산안법 시행규칙 제4조 협조 요청이 궁금합니다.",
+        referenceDate: "2026-04-18"
+      },
+      user,
+      deps,
+      now: "2026-04-18T00:00:00.000Z"
+    });
+
+    expect(response.kind).toBe("verification_pending");
+    if (response.kind === "verification_pending") {
+      expect(response.answer?.conclusion).toContain("검증 보류 상태");
+      expect(response.answer?.verifiedFacts.length).toBeGreaterThan(0);
+      expect(response.answer?.citations.length).toBeGreaterThan(0);
+    }
+
+    const history = await historyStore.listRuns(user.id);
+    expect(history.history[0].status).toBe("verification_pending");
   });
 
   test("returns clarify on weak evidence when skipClarification is false", async () => {

@@ -12,6 +12,8 @@ const productionEnv = {
   AUTH_MAGIC_LINK_TTL_MINUTES: "15",
   AUTH_FROM_EMAIL: "legal@example.com",
   SMTP_URL: "smtp://mail.example.com:25",
+  QUERY_REWRITE_DEADLINE_MS: "1000",
+  RETRIEVAL_CANDIDATE_CAP: "5",
   RETRIEVAL_DEADLINE_MS: "500",
   ENGINE_DEADLINE_MS: "1000",
   MCP_VERIFY_DEADLINE_MS: "1200",

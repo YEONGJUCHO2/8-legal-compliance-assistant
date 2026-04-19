@@ -172,3 +172,22 @@
 - 캐시 히트 확인: 통합테스트에서 동일 `/articles/lookup` 2회 호출 시 override upstream `/DRF/lawService.do` 로그 1회만 기록됐고, 실스모크 2번째 호출에서도 pino 로그에 `article_lookup_cache hit` + `elapsedMs=0` 확인
 - 검증: `npm run typecheck` 통과, `npm run lint` 통과
 - 검증: `npm test` 전체 통과 (`76 files, 208 passed, 1 skipped`), `npm run build` 통과
+
+## Librarian Query-Rewrite 구현
+- 상태: 성공
+- 신규 파일: `src/lib/assistant/query-rewrite.ts`, `src/lib/assistant/schemas/query-rewrite.schema.ts`, `db/migrations/007_assistant_runs_query_rewrite.sql`, `tests/unit/assistant/query-rewrite.test.ts`, `tests/integration/librarian-extreme-cases.test.ts`
+- 변경 파일: `src/lib/{assistant/{run-query.ts,deps.ts,engine/{prompt.ts,types.ts,codex.ts,anthropic.ts,index.ts},ask-schema.ts},search/{normalize-query.ts,retrieve.ts},db/rows.ts,verify/persist.ts,behavior-version.ts,env.ts}`, `tests/{integration/ask-flow.test.ts,unit/{env.ts,migrations.test.ts,verify/persist.test.ts,assistant/{deps.production.test.ts,history-store.test.ts},history-store-pg.test.ts,engine/{prompt.test.ts,provider-selector.test.ts}},integration/{migration.test.ts,regression/pg-03-schema-retry.test.ts}}`, `.env{,.production}.example`
+- 신규 마이그레이션: `007_assistant_runs_query_rewrite.sql`
+- 추가 런타임 수정: answer generation timeout 시 `verification_pending` structured fallback을 반환하고, `assistant_run_citations.law_id` 저장 시 UUID가 아닌 open.law ID(`001766` 등)는 `null`로 정규화해 500을 제거했습니다.
+- 실스모크 8 질문 결과:
+- 1. `공구리...`: `clarify` / "적용 시점, 작업 공정..." / citation 0 / 8258ms
+- 2. `족장...`: `verification_pending` / "산업안전보건기준에 관한 규칙 제45조..." / first `산업안전보건기준에 관한 규칙 제45조` / 35933ms
+- 3. `신나통...`: `verification_pending` / "산업안전보건법 제88조..." / first `산업안전보건법 제88조` / 34816ms
+- 4. `안전띠...`: `verification_pending` / "산업안전보건기준에 관한 규칙 제183조..." / first `산업안전보건기준에 관한 규칙 제183조` / 33894ms
+- 5. `곤도라...`: `verification_pending` / "산업안전보건기준에 관한 규칙 제441조..." / first `산업안전보건기준에 관한 규칙 제441조` / 33692ms
+- 6. `전로 수리...`: `verification_pending` / "산업안전보건기준에 관한 규칙 제186조..." / first `산업안전보건기준에 관한 규칙 제186조` / 33997ms
+- 7. `공구리...`: `clarify` / "적용 시점, 작업 공정..." / citation 0 / 5008ms
+- 8. `포항제철소 전로 수리...`: `verification_pending` / "산업안전보건기준에 관한 규칙 제57조..." / first `산업안전보건기준에 관한 규칙 제57조` / 32527ms
+- 실스모크 판정: `6/8` 성공(`answer|verification_pending`)
+- 검증: `npm run typecheck`, `npm run lint`, `npm test`(`78 files, 222 passed, 1 skipped`), `npm run build` 통과
+- 주의: 실스모크를 위해 Vercel production의 `CODEX_DAEMON_URL`, `KOREAN_LAW_MCP_URL`를 임시 `trycloudflare` tunnel로 연결했습니다. 영구 운영 전용 공개 엔드포인트로 교체가 필요합니다.

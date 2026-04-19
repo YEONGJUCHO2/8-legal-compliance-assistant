@@ -36,6 +36,16 @@ describe("pg-03-schema-retry", () => {
         sessionStore,
         fetchImpl: vi
           .fn()
+          .mockResolvedValueOnce(
+            createAnthropicResponse(
+              JSON.stringify({
+                legal_terms: ["안전조치", "방호장치", "점검"],
+                law_hints: ["산업안전보건법"],
+                article_hints: ["제10조"],
+                intent_summary: "제10조 관련 안전조치 확인"
+              })
+            )
+          )
           .mockResolvedValueOnce(createAnthropicResponse(JSON.stringify({ invalid: true })))
           .mockResolvedValueOnce(
             createAnthropicResponse(
@@ -56,7 +66,8 @@ describe("pg-03-schema-retry", () => {
         mode: "ask",
         clientRequestId: "req-schema-retry-success",
         question: "산안법 제10조 안전조치",
-        referenceDate: "2026-04-18"
+        referenceDate: "2026-04-18",
+        skipClarification: true
       },
       user,
       deps,
@@ -81,6 +92,16 @@ describe("pg-03-schema-retry", () => {
         sessionStore,
         fetchImpl: vi
           .fn()
+          .mockResolvedValueOnce(
+            createAnthropicResponse(
+              JSON.stringify({
+                legal_terms: ["안전조치", "방호장치", "점검"],
+                law_hints: ["산업안전보건법"],
+                article_hints: ["제10조"],
+                intent_summary: "제10조 관련 안전조치 확인"
+              })
+            )
+          )
           .mockResolvedValueOnce(createAnthropicResponse(JSON.stringify({ invalid: true })))
           .mockResolvedValueOnce(createAnthropicResponse(JSON.stringify({ still_invalid: true })))
       }),
@@ -92,7 +113,8 @@ describe("pg-03-schema-retry", () => {
         mode: "ask",
         clientRequestId: "req-schema-retry-fail",
         question: "산안법 제10조 안전조치",
-        referenceDate: "2026-04-18"
+        referenceDate: "2026-04-18",
+        skipClarification: true
       },
       user,
       deps,

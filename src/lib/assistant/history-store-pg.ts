@@ -27,6 +27,8 @@ type RunDbRow = {
   reference_date_confirmed: boolean;
   engine_provider: QuestionHistoryRow["engine_provider"];
   schema_retry_count: number;
+  query_rewrite_terms?: unknown;
+  query_rewrite_intent?: string | null;
   created_at: string | Date;
   response_json?: AskResponse | string | null;
 };
@@ -82,6 +84,10 @@ function mapRunRow(row: RunDbRow): QuestionHistoryRow {
     reference_date_confirmed: row.reference_date_confirmed,
     engine_provider: row.engine_provider,
     schema_retry_count: row.schema_retry_count,
+    query_rewrite_terms: Array.isArray(row.query_rewrite_terms)
+      ? row.query_rewrite_terms.filter((value): value is string => typeof value === "string")
+      : null,
+    query_rewrite_intent: row.query_rewrite_intent ?? null,
     created_at: toIsoDateTime(row.created_at) ?? new Date(0).toISOString()
   };
 }
@@ -145,6 +151,8 @@ async function selectRun(db: Sql, id: string) {
         reference_date_confirmed,
         engine_provider,
         schema_retry_count,
+        query_rewrite_terms,
+        query_rewrite_intent,
         created_at,
         response_json
       FROM assistant_runs
@@ -181,11 +189,14 @@ export function createPgHistoryStore(db: Sql = getDb()): HistoryStore {
             reference_date_confirmed,
             engine_provider,
             schema_retry_count,
+            query_rewrite_terms,
+            query_rewrite_intent,
             created_at,
             response_json
           ) VALUES (
             $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
-            $11, $12, $13, $14, $15, $16, $17, $18, $19, $20
+            $11, $12, $13, $14, $15, $16, $17, $18, $19, $20,
+            $21, $22
           )
           ON CONFLICT (id) DO UPDATE
           SET user_id = EXCLUDED.user_id,
@@ -205,6 +216,8 @@ export function createPgHistoryStore(db: Sql = getDb()): HistoryStore {
               reference_date_confirmed = EXCLUDED.reference_date_confirmed,
               engine_provider = EXCLUDED.engine_provider,
               schema_retry_count = EXCLUDED.schema_retry_count,
+              query_rewrite_terms = EXCLUDED.query_rewrite_terms,
+              query_rewrite_intent = EXCLUDED.query_rewrite_intent,
               created_at = EXCLUDED.created_at,
               response_json = COALESCE(EXCLUDED.response_json, assistant_runs.response_json)
         `,
@@ -227,6 +240,8 @@ export function createPgHistoryStore(db: Sql = getDb()): HistoryStore {
           row.reference_date_confirmed,
           row.engine_provider,
           row.schema_retry_count,
+          row.query_rewrite_terms ?? null,
+          row.query_rewrite_intent ?? null,
           row.created_at,
           response ?? null
         ]

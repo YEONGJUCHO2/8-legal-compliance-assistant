@@ -12,6 +12,7 @@ const concreteWiringMigrationPath = path.join(migrationsDir, "003_postgres_concr
 const runtimeStateMigrationPath = path.join(migrationsDir, "004_runtime_state.sql");
 const historyCitationDenormMigrationPath = path.join(migrationsDir, "005_history_citation_denormalization.sql");
 const authSessionTokenHashUniqueMigrationPath = path.join(migrationsDir, "006_auth_sessions_token_hash_unique.sql");
+const assistantRunsQueryRewriteMigrationPath = path.join(migrationsDir, "007_assistant_runs_query_rewrite.sql");
 
 async function readMigration(filename: string) {
   return readFile(path.join(migrationsDir, filename), "utf8");
@@ -111,6 +112,14 @@ describe("SQL migrations", () => {
     expect(sql).toMatch(/UNIQUE\s*\(token_hash\)/i);
   });
 
+  test("007_assistant_runs_query_rewrite.sql stores query rewrite output on assistant runs", async () => {
+    const sql = await readMigration("007_assistant_runs_query_rewrite.sql");
+
+    expect(sql).toMatch(/ALTER TABLE assistant_runs/i);
+    expect(sql).toMatch(/ADD COLUMN IF NOT EXISTS query_rewrite_terms JSONB/i);
+    expect(sql).toMatch(/ADD COLUMN IF NOT EXISTS query_rewrite_intent TEXT/i);
+  });
+
   test("migration files exist where the runner expects them", async () => {
     await expect(readFile(baseMigrationPath, "utf8")).resolves.toContain("app_users");
     await expect(readFile(vectorMigrationPath, "utf8")).resolves.toContain("vector");
@@ -118,5 +127,6 @@ describe("SQL migrations", () => {
     await expect(readFile(runtimeStateMigrationPath, "utf8")).resolves.toContain("rate_limit_buckets");
     await expect(readFile(historyCitationDenormMigrationPath, "utf8")).resolves.toContain("rendered_from_verification");
     await expect(readFile(authSessionTokenHashUniqueMigrationPath, "utf8")).resolves.toContain("token_hash");
+    await expect(readFile(assistantRunsQueryRewriteMigrationPath, "utf8")).resolves.toContain("query_rewrite_terms");
   });
 });

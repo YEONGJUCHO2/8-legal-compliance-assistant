@@ -51,6 +51,14 @@ export interface AssistantDeps {
   cancellation?: {
     isCanceled(requestId?: string): boolean;
   };
+  runtimeConfig?: {
+    queryRewriteDeadlineMs: number;
+    retrievalCandidateCap: number;
+    retrievalDeadlineMs: number;
+    engineDeadlineMs: number;
+    mcpVerifyDeadlineMs: number;
+    deadlineSafetyMarginMs: number;
+  };
 }
 
 export class RuntimeConfigurationError extends Error {
@@ -118,6 +126,14 @@ function createDefaultDeps(): AssistantDeps {
     generateRequestId,
     rateLimitStore: createInMemoryRateLimitStore(),
     serviceUpdateStore: createInMemoryServiceUpdateStore(createDefaultServiceUpdateSeed()),
+    runtimeConfig: {
+      queryRewriteDeadlineMs: 10_000,
+      retrievalCandidateCap: 5,
+      retrievalDeadlineMs: 3_000,
+      engineDeadlineMs: 25_000,
+      mcpVerifyDeadlineMs: 8_000,
+      deadlineSafetyMarginMs: 2_000
+    },
     now: () => new Date(),
     today: () => new Date().toISOString().slice(0, 10)
   };
@@ -139,7 +155,8 @@ function createProductionDeps(): AssistantDeps {
       retrieveFn: retrieve,
       engine: createEngineAdapter(env),
       mcp: createKoreanLawMcpClient({
-        baseUrl: env.KOREAN_LAW_MCP_URL
+        baseUrl: env.KOREAN_LAW_MCP_URL,
+        timeoutMs: env.MCP_VERIFY_DEADLINE_MS
       }),
       mailer: createSmtpMailer({
         smtpUrl: env.SMTP_URL,
@@ -155,6 +172,14 @@ function createProductionDeps(): AssistantDeps {
         refillPerSec: rateLimitRefillPerSec
       }),
       serviceUpdateStore: createPgServiceUpdateStore(),
+      runtimeConfig: {
+        queryRewriteDeadlineMs: env.QUERY_REWRITE_DEADLINE_MS,
+        retrievalCandidateCap: env.RETRIEVAL_CANDIDATE_CAP,
+        retrievalDeadlineMs: env.RETRIEVAL_DEADLINE_MS,
+        engineDeadlineMs: env.ENGINE_DEADLINE_MS,
+        mcpVerifyDeadlineMs: env.MCP_VERIFY_DEADLINE_MS,
+        deadlineSafetyMarginMs: env.DEADLINE_SAFETY_MARGIN_MS
+      },
       now: () => new Date(),
       today: () => new Date().toISOString().slice(0, 10)
     };

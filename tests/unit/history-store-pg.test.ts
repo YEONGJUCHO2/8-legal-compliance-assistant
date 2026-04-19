@@ -25,6 +25,8 @@ const runRow: QuestionHistoryRow = {
   reference_date_confirmed: false,
   engine_provider: "anthropic",
   schema_retry_count: 0,
+  query_rewrite_terms: null,
+  query_rewrite_intent: null,
   created_at: "2026-04-18T00:00:00.000Z"
 };
 
@@ -105,6 +107,8 @@ function buildRunDbRow(row: QuestionHistoryRow) {
     reference_date_confirmed: row.reference_date_confirmed,
     engine_provider: row.engine_provider,
     schema_retry_count: row.schema_retry_count,
+    query_rewrite_terms: row.query_rewrite_terms,
+    query_rewrite_intent: row.query_rewrite_intent,
     created_at: row.created_at
   };
 }
@@ -129,7 +133,9 @@ describe("history-store-pg", () => {
         expect(params[3]).toBe(runRow.client_request_id);
         expect(params[4]).toBe(runRow.user_query);
         expect(params[14]).toBe(runRow.answer_behavior_version);
-        expect(params[19]).toEqual(answerResponse);
+        expect(params[18]).toBeNull();
+        expect(params[19]).toBeNull();
+        expect(params[21]).toEqual(answerResponse);
         return [];
       },
       () => [buildRunDbRow(runRow)],

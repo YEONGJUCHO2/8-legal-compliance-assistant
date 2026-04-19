@@ -15,6 +15,8 @@ const validEnv = {
   AUTH_FROM_EMAIL: "legal-compliance@example.com",
   METRICS_ACCESS_TOKEN: "metrics-token",
   SMTP_URL: "smtp://localhost:1025",
+  QUERY_REWRITE_DEADLINE_MS: "1000",
+  RETRIEVAL_CANDIDATE_CAP: "5",
   RETRIEVAL_DEADLINE_MS: "500",
   ENGINE_DEADLINE_MS: "1000",
   MCP_VERIFY_DEADLINE_MS: "1200",
@@ -46,12 +48,17 @@ describe("parseEnv", () => {
       AUTH_MAGIC_LINK_TTL_MINUTES: undefined,
       AUTH_FROM_EMAIL: undefined,
       METRICS_ACCESS_TOKEN: undefined,
-      SMTP_URL: undefined
+      SMTP_URL: undefined,
+      QUERY_REWRITE_DEADLINE_MS: undefined,
+      RETRIEVAL_CANDIDATE_CAP: undefined,
+      ROUTE_MAX_DURATION_SECONDS: "20"
     });
 
     expect(env.AUTH_MAGIC_LINK_TTL_MINUTES).toBe(15);
     expect(env.AUTH_FROM_EMAIL).toBeUndefined();
     expect(env.METRICS_ACCESS_TOKEN).toBeUndefined();
     expect(env.SMTP_URL).toBeUndefined();
+    expect(env.QUERY_REWRITE_DEADLINE_MS).toBe(10000);
+    expect(env.RETRIEVAL_CANDIDATE_CAP).toBe(5);
   });
 });

@@ -94,3 +94,26 @@ export function buildPrompt(input: BuildPromptInput): EnginePrompt {
     schemaRef: input.schemaRef
   };
 }
+
+export function buildQueryRewritePrompt({
+  question,
+  referenceDate
+}: {
+  question: string;
+  referenceDate: string;
+}): EnginePrompt {
+  return {
+    system: [
+      "당신은 한국 산업안전보건 법령 검색을 돕는 사서입니다.",
+      "사용자의 자연어 질문에서 법령 본문 검색에 쓸 수 있는 핵심 용어만 추출하세요.",
+      "현장 속어·은어·지명·회사명·설비명·원문 그대로의 단어는 법령 공식 용어로 치환해서 추출하세요. 예: '공구리 치기' → '콘크리트 타설', '족장' → '비계', '안전띠' → '안전대', '곤돌라' → '달비계/달기구'.",
+      "아는 법령 용어가 없으면 관련성 높은 가장 일반적인 안전보건 용어를 제시하세요. 빈 배열 금지.",
+      "법령 외 산업(세법/환경법/건설업 일반 등) 으로 질문이 벗어나면 intent_summary 에 그 사실을 명시하고 legal_terms 는 최선의 산업안전 근사치로 채우세요.",
+      "출력은 QueryRewriteSchema 스키마만."
+    ].join("\n"),
+    user: [`기준일: ${referenceDate}`, `질문: ${question}`].join("\n"),
+    citations: [],
+    referenceDate,
+    schemaRef: "query_rewrite"
+  };
+}

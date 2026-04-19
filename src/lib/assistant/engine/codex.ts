@@ -133,12 +133,12 @@ export function createCodexAdapter(options: CreateCodexAdapterOptions = {}): Eng
         schemaRef: input.schemaRef,
         schema: engineOutputJsonSchemas[input.schemaRef],
         sessionId: session.handle,
-        timeoutMs: options.deadlineMs,
+        timeoutMs: input.deadlineMs ?? options.deadlineMs,
         model: options.model
       };
       const signal =
-        options.deadlineMs && typeof AbortSignal.timeout === "function"
-          ? AbortSignal.timeout(options.deadlineMs)
+        (input.deadlineMs ?? options.deadlineMs) && typeof AbortSignal.timeout === "function"
+          ? AbortSignal.timeout(input.deadlineMs ?? options.deadlineMs ?? 0)
           : undefined;
       let payload: unknown;
 
