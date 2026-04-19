@@ -54,6 +54,136 @@
 ### 2.3 첫 배포 smoke
 - 배포 완료 후 `OPERATIONS.md` 의 "Health snapshot" 섹션 전체 실행, 5개 모두 기대값 일치 확인
 
+### 2.4 GitHub Actions CI (🟡 권장)
+Autonomous 세션에서 사용된 GitHub OAuth 토큰에 `workflow` scope 가 없어서 `.github/workflows/ci.yml` 을 push 할 수 없었음. 사용자가 `workflow` scope 가 포함된 Personal Access Token 으로 로컬 커밋·push 하거나, GitHub UI 에서 직접 파일을 추가해야 CI 가 켜짐.
+
+**추가 경로**: `.github/workflows/ci.yml`
+
+```yaml
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  static:
+    name: typecheck + lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+
+  unit:
+    name: vitest
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/legal_compliance
+      LAW_API_KEY: ci-placeholder
+      KOREAN_LAW_MCP_URL: http://127.0.0.1:4100
+      ENGINE_PROVIDER: codex_stub
+      ANTHROPIC_API_KEY: ci-placeholder
+      CODEX_DAEMON_URL: http://127.0.0.1:4200
+      APP_BASE_URL: http://127.0.0.1:3000
+      AUTH_SECRET: ci-placeholder-secret
+      AUTH_MAGIC_LINK_TTL_MINUTES: "15"
+      AUTH_FROM_EMAIL: ci@example.com
+      METRICS_ACCESS_TOKEN: ci-metrics-token
+      RETRIEVAL_DEADLINE_MS: "8000"
+      ENGINE_DEADLINE_MS: "12000"
+      MCP_VERIFY_DEADLINE_MS: "15000"
+      ROUTE_MAX_DURATION_SECONDS: "60"
+      DEADLINE_SAFETY_MARGIN_MS: "5000"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npm test -- --run
+
+  build:
+    name: next build
+    runs-on: ubuntu-latest
+    needs: [static, unit]
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/legal_compliance
+      LAW_API_KEY: ci-placeholder
+      KOREAN_LAW_MCP_URL: http://127.0.0.1:4100
+      ENGINE_PROVIDER: codex_stub
+      ANTHROPIC_API_KEY: ci-placeholder
+      CODEX_DAEMON_URL: http://127.0.0.1:4200
+      APP_BASE_URL: http://127.0.0.1:3000
+      AUTH_SECRET: ci-placeholder-secret
+      AUTH_MAGIC_LINK_TTL_MINUTES: "15"
+      AUTH_FROM_EMAIL: ci@example.com
+      METRICS_ACCESS_TOKEN: ci-metrics-token
+      RETRIEVAL_DEADLINE_MS: "8000"
+      ENGINE_DEADLINE_MS: "12000"
+      MCP_VERIFY_DEADLINE_MS: "15000"
+      ROUTE_MAX_DURATION_SECONDS: "60"
+      DEADLINE_SAFETY_MARGIN_MS: "5000"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+
+  e2e:
+    name: playwright
+    runs-on: ubuntu-latest
+    needs: [build]
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/legal_compliance
+      LAW_API_KEY: ci-placeholder
+      KOREAN_LAW_MCP_URL: http://127.0.0.1:4100
+      ENGINE_PROVIDER: codex_stub
+      ANTHROPIC_API_KEY: ci-placeholder
+      CODEX_DAEMON_URL: http://127.0.0.1:4200
+      APP_BASE_URL: http://127.0.0.1:3000
+      AUTH_SECRET: ci-placeholder-secret
+      AUTH_MAGIC_LINK_TTL_MINUTES: "15"
+      AUTH_FROM_EMAIL: ci@example.com
+      METRICS_ACCESS_TOKEN: ci-metrics-token
+      RETRIEVAL_DEADLINE_MS: "8000"
+      ENGINE_DEADLINE_MS: "12000"
+      MCP_VERIFY_DEADLINE_MS: "15000"
+      ROUTE_MAX_DURATION_SECONDS: "60"
+      DEADLINE_SAFETY_MARGIN_MS: "5000"
+      CI: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report
+          retention-days: 7
+```
+
 ---
 
 ## 3. 보안 / 법무 (🔴 필수)
