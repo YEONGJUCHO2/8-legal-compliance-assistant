@@ -21,6 +21,16 @@ describe("detectSuspiciousDateHint", () => {
     expect(result.hint).toBe("작년");
   });
 
+  test.each(["어제", "최근", "요즘"])("flags %s as a relative phrase", (phrase) => {
+    const result = detectSuspiciousDateHint(`${phrase} 기준으로 알려줘`, "2026-04-18", "2026-04-18");
+
+    expect(result).toEqual({
+      conflict: true,
+      reason: "relative_past_hint",
+      hint: phrase
+    });
+  });
+
   test("returns no conflict when the detected year matches the reference date", () => {
     const result = detectSuspiciousDateHint("2026년 기준으로 알려줘", "2026-04-18", "2026-04-18");
 

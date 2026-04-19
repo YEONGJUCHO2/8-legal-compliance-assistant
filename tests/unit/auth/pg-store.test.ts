@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 
+import { AuthError } from "@/lib/auth/types";
 import { createPgAuthStore } from "@/lib/auth/pg-store";
 
 import { createMockSql } from "../helpers/mock-postgres";
@@ -154,6 +155,29 @@ describe("createPgAuthStore", () => {
     expect(found?.userId).toBe("user-1");
     expect(revoked?.revokedAt).toBe("2026-04-19T00:00:00.000Z");
     expect(mock.calls[2].query).toContain("UPDATE auth_sessions");
+  });
+
+  test("maps duplicate token hashes to session_conflict", async () => {
+    const mock = createMockSql([
+      () => {
+        const error = new Error("duplicate key value violates unique constraint") as Error & { code?: string };
+        error.code = "23505";
+        throw error;
+      }
+    ]);
+    const store = createPgAuthStore(mock.sql);
+
+    await expect(
+      store.createSession({
+        id: "session-duplicate",
+        userId: "user-1",
+        tokenHash: "session-hash",
+        createdAt: "2026-04-18T00:00:00.000Z",
+        expiresAt: "2026-04-25T00:00:00.000Z",
+        ip: "127.0.0.1",
+        userAgent: "Vitest"
+      })
+    ).rejects.toEqual(new AuthError("session_conflict", "Session token hash already exists"));
   });
 
   test("finds or creates durable identities and users", async () => {

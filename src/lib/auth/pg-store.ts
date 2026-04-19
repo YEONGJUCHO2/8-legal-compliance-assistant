@@ -169,26 +169,36 @@ export function createPgAuthStore(db: Sql = getDb()): PgAuthStore {
     },
     async createSession(record) {
       const sessionId = record.id ?? randomUUID();
-      const rows = await db.unsafe<SessionRow[]>(
-        `
-          INSERT INTO auth_sessions (
-            id, user_id, token_hash, created_at, expires_at, revoked_at, ip, user_agent
-          ) VALUES (
-            $1, $2, $3, $4, $5, $6, $7, $8
-          )
-          RETURNING id, user_id, token_hash, created_at, expires_at, revoked_at, ip, user_agent
-        `,
-        [
-          sessionId,
-          record.userId,
-          record.tokenHash,
-          record.createdAt,
-          record.expiresAt,
-          record.revokedAt ?? null,
-          record.ip ?? null,
-          record.userAgent ?? null
-        ]
-      );
+      let rows: SessionRow[];
+
+      try {
+        rows = await db.unsafe<SessionRow[]>(
+          `
+            INSERT INTO auth_sessions (
+              id, user_id, token_hash, created_at, expires_at, revoked_at, ip, user_agent
+            ) VALUES (
+              $1, $2, $3, $4, $5, $6, $7, $8
+            )
+            RETURNING id, user_id, token_hash, created_at, expires_at, revoked_at, ip, user_agent
+          `,
+          [
+            sessionId,
+            record.userId,
+            record.tokenHash,
+            record.createdAt,
+            record.expiresAt,
+            record.revokedAt ?? null,
+            record.ip ?? null,
+            record.userAgent ?? null
+          ]
+        );
+      } catch (error) {
+        if ((error as { code?: string }).code === "23505") {
+          throw new AuthError("session_conflict", "Session token hash already exists");
+        }
+
+        throw error;
+      }
 
       return mapSession(rows[0]);
     },

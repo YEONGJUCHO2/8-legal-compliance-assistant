@@ -119,3 +119,13 @@
 - 검증: `npm run typecheck` 통과, `npm run lint` 통과
 - 검증: `npm test -- tests/integration/regression/malicious-corpus.test.ts` 통과
 - 검증: `npm test` 전체 통과 (`72 files, 187 passed, 1 skipped, 4 todo`)
+
+## Phase 10 TODO A/B/C 마무리
+- 상태: 성공
+- 변경 파일: `src/lib/{rate-limit.ts,assistant/date-gate.ts,auth/{types,in-memory-store,pg-store}.ts}`, `db/migrations/006_auth_sessions_token_hash_unique.sql`
+- 변경 파일: `tests/{unit/rate-limit,unit/auth/{magic-link-request,pg-store}.test.ts,unit/assistant/date-gate.test.ts,unit/migrations.test.ts,integration/migration.test.ts,integration/regression/{pg-11-backpressure,pg-09-10-identity-fuzz,uf-16-17-date-parser}.test.ts}`
+- A: in-memory rate limit에 atomic `consume()` fast-path를 추가해 concurrent 2N 요청이 exact `N allowed / N blocked`로 고정되도록 했고, `requestMagicLink()`의 backstop override도 유지되게 맞췄습니다.
+- B: `detectSuspiciousDateHint()`가 `어제`, `최근`, `요즘`을 `relative_past_hint`로 잡도록 확장해 regression `todo`를 실제 테스트로 승격했습니다.
+- C: session `tokenHash`를 in-memory/PG store 모두에서 unique하게 강제하고 `session_conflict`를 추가했으며, `006_auth_sessions_token_hash_unique.sql`로 업그레이드 DB도 제약을 보장하게 했습니다.
+- 검증: `rg -n "test\\.todo|\\.todo\\(" tests` 매치 없음
+- 검증: `npm run typecheck`, `npm run lint`, `npm test` (`72 files, 197 passed, 1 skipped`), `npm run build` 통과

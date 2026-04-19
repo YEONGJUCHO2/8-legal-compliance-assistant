@@ -40,7 +40,11 @@ describe("uf-16-17-date-parser", () => {
     });
   });
 
-  test.todo("flags '어제' as a relative phrase without auto-converting it");
-  test.todo("flags '최근' as a relative phrase without auto-converting it");
-  test.todo("flags '요즘' as a relative phrase without auto-converting it");
+  test.each(["어제", "최근", "요즘"])("flags %s as a relative phrase without auto-converting it", (phrase) => {
+    expect(detectSuspiciousDateHint(`${phrase} 기준 의무`, "2026-04-18", "2026-04-18")).toMatchObject({
+      conflict: true,
+      reason: "relative_past_hint",
+      hint: phrase
+    });
+  });
 });

@@ -3,7 +3,7 @@ export function detectSuspiciousDateHint(question: string, referenceDate: string
   const explicitYear = explicitMatch
     ? explicitMatch[0].match(/20\d{2}/)?.[0] ?? null
     : null;
-  const relativeMatch = question.match(/(작년|재작년|\d+년 전|지난달|사고 당시|개정 전)/);
+  const relativeMatch = question.match(/(작년|재작년|\d+년 전|지난달|어제|최근|요즘|사고 당시|개정 전)/);
 
   if (explicitYear && explicitYear !== referenceDate.slice(0, 4)) {
     return {

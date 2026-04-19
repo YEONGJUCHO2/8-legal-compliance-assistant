@@ -147,7 +147,8 @@ test("base migrations apply idempotently on a clean database", async ({ skip }) 
       "001_base.sql",
       "003_postgres_concrete_wiring.sql",
       "004_runtime_state.sql",
-      "005_history_citation_denormalization.sql"
+      "005_history_citation_denormalization.sql",
+      "006_auth_sessions_token_hash_unique.sql"
     ]);
   } catch (error) {
     skip(

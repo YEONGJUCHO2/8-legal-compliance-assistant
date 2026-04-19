@@ -2,7 +2,6 @@
 
 import { describe, expect, test } from "vitest";
 
-import { getCurrentUser } from "@/lib/auth/session";
 import { hashToken } from "@/lib/auth/tokens";
 import { createInMemoryAuthStore } from "@/lib/auth/in-memory-store";
 
@@ -62,7 +61,7 @@ describe("pg-09-10-identity-fuzz", () => {
     });
   });
 
-  test("characterizes session storage as permitting same token hash reuse across users; lookup resolves the first inserted owner", async () => {
+  test("characterizes session storage as bound to originating user; same token hash cannot be reused across users", async () => {
     const store = createInMemoryAuthStore();
     const userA = await store.findOrCreateUserByEmail({
       email: "user-a@example.com",
@@ -87,29 +86,24 @@ describe("pg-09-10-identity-fuzz", () => {
       ip: "127.0.0.1",
       userAgent: "vitest"
     });
-    const sessionB = await store.createSession({
-      userId: userB.id,
-      tokenHash,
-      createdAt: "2026-04-18T00:02:30.000Z",
-      expiresAt: "2026-04-25T00:02:30.000Z",
-      ip: "127.0.0.1",
-      userAgent: "vitest"
+
+    await expect(
+      store.createSession({
+        userId: userB.id,
+        tokenHash,
+        createdAt: "2026-04-18T00:02:30.000Z",
+        expiresAt: "2026-04-25T00:02:30.000Z",
+        ip: "127.0.0.1",
+        userAgent: "vitest"
+      })
+    ).rejects.toMatchObject({
+      code: "session_conflict"
     });
 
     const found = await store.findSessionByHash(tokenHash);
-    const currentUser = await getCurrentUser({
-      cookie: `app_session=${sessionToken}`,
-      store,
-      now: "2026-04-18T00:03:00.000Z"
-    });
 
     expect(sessionA.userId).toBe(userA.id);
-    expect(sessionB.userId).toBe(userB.id);
-    expect(sessionA.tokenHash).toBe(sessionB.tokenHash);
     expect(found?.userId).toBe(userA.id);
-    // Public session APIs allow duplicate token hashes, so lookup stays tied to insertion order rather than unique ownership.
-    expect(currentUser).toMatchObject({
-      id: userA.id
-    });
+    expect(found?.tokenHash).toBe(tokenHash);
   });
 });

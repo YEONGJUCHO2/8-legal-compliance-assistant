@@ -6,6 +6,18 @@ type Bucket = {
 export interface RateLimitStore {
   read(key: string): Promise<Bucket | null>;
   write(key: string, bucket: Bucket): Promise<void>;
+  consume?(
+    key: string,
+    now: string | Date
+  ): Promise<
+    | {
+        allowed: true;
+      }
+    | {
+        allowed: false;
+        retryAfterMs: number;
+      }
+  >;
   reset?(): Promise<void>;
 }
 
@@ -29,6 +41,48 @@ export function createInMemoryRateLimitStore({
     },
     async write(key, bucket) {
       buckets.set(key, bucket);
+    },
+    async consume(
+      this: {
+        capacity?: number;
+        refillPerSec?: number;
+      },
+      key,
+      now
+    ) {
+      const currentMs = toMillis(now);
+      const currentCapacity = this.capacity ?? capacity;
+      const currentRefillPerSec = this.refillPerSec ?? refillPerSec;
+      const existing = buckets.get(key) ?? {
+        tokens: currentCapacity,
+        updatedAtMs: currentMs
+      };
+      const elapsedSec = Math.max(0, (currentMs - existing.updatedAtMs) / 1000);
+      const replenished = Math.min(currentCapacity, existing.tokens + elapsedSec * currentRefillPerSec);
+
+      if (replenished < 1) {
+        const deficit = 1 - replenished;
+        const retryAfterMs =
+          currentRefillPerSec > 0 ? Math.ceil((deficit / currentRefillPerSec) * 1000) : 60_000;
+        buckets.set(key, {
+          tokens: replenished,
+          updatedAtMs: currentMs
+        });
+
+        return {
+          allowed: false as const,
+          retryAfterMs
+        };
+      }
+
+      buckets.set(key, {
+        tokens: replenished - 1,
+        updatedAtMs: currentMs
+      });
+
+      return {
+        allowed: true as const
+      };
     },
     async reset() {
       buckets.clear();

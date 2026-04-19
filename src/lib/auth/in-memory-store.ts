@@ -70,6 +70,12 @@ export function createInMemoryAuthStore(seed?: {
       return { ...next };
     },
     async createSession(record) {
+      for (const existing of sessions.values()) {
+        if (existing.tokenHash === record.tokenHash) {
+          throw new AuthError("session_conflict", "Session token hash already exists");
+        }
+      }
+
       const next = {
         ...record,
         id: record.id ?? randomUUID()

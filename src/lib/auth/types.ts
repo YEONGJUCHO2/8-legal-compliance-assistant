@@ -72,6 +72,7 @@ export type AuthErrorCode =
   | "state_mismatch"
   | "token_redemption_limit"
   | "identity_conflict"
+  | "session_conflict"
   | "auth_expired";
 
 export class AuthError extends Error {

@@ -36,5 +36,37 @@ describe("pg-11-backpressure", () => {
     expect(response.retryAfterSeconds).toBeGreaterThan(0);
   });
 
-  test.todo("rejects exactly N of 2N same-tick concurrent requests without queue starvation");
+  test("rejects exactly N of 2N same-tick concurrent requests without queue starvation", async () => {
+    const capacity = 3;
+    const { user, deps } = await createRegressionDeps({
+      rateLimitStore: createInMemoryRateLimitStore({
+        capacity,
+        refillPerSec: 0
+      })
+    });
+
+    const startedAt = Date.now();
+    const responses = await Promise.all(
+      Array.from({ length: capacity * 2 }, (_, index) =>
+        runQuery({
+          request: {
+            mode: "ask",
+            clientRequestId: `req-backpressure-${index}`,
+            question: "산안법 제10조 안전조치",
+            referenceDate: "2026-04-18"
+          },
+          user,
+          deps,
+          now: "2026-04-18T00:00:00.000Z"
+        })
+      )
+    );
+    const elapsedMs = Date.now() - startedAt;
+    const allowedCount = responses.filter((response) => response.kind !== "rate_limited").length;
+    const blockedCount = responses.filter((response) => response.kind === "rate_limited").length;
+
+    expect(allowedCount).toBe(capacity);
+    expect(blockedCount).toBe(capacity);
+    expect(elapsedMs).toBeLessThan(2000);
+  });
 });

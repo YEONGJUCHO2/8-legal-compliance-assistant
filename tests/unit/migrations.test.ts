@@ -11,6 +11,7 @@ const vectorMigrationPath = path.join(migrationsDir, "002_vector.sql");
 const concreteWiringMigrationPath = path.join(migrationsDir, "003_postgres_concrete_wiring.sql");
 const runtimeStateMigrationPath = path.join(migrationsDir, "004_runtime_state.sql");
 const historyCitationDenormMigrationPath = path.join(migrationsDir, "005_history_citation_denormalization.sql");
+const authSessionTokenHashUniqueMigrationPath = path.join(migrationsDir, "006_auth_sessions_token_hash_unique.sql");
 
 async function readMigration(filename: string) {
   return readFile(path.join(migrationsDir, filename), "utf8");
@@ -102,11 +103,20 @@ describe("SQL migrations", () => {
     expect(sql).toMatch(/assistant_run_citations_answer_strength_downgrade_check/i);
   });
 
+  test("006_auth_sessions_token_hash_unique.sql enforces unique token hashes on auth sessions", async () => {
+    const sql = await readMigration("006_auth_sessions_token_hash_unique.sql");
+
+    expect(sql).toMatch(/auth_sessions_token_hash_unique/i);
+    expect(sql).toMatch(/ALTER TABLE auth_sessions/i);
+    expect(sql).toMatch(/UNIQUE\s*\(token_hash\)/i);
+  });
+
   test("migration files exist where the runner expects them", async () => {
     await expect(readFile(baseMigrationPath, "utf8")).resolves.toContain("app_users");
     await expect(readFile(vectorMigrationPath, "utf8")).resolves.toContain("vector");
     await expect(readFile(concreteWiringMigrationPath, "utf8")).resolves.toContain("redemption_attempts");
     await expect(readFile(runtimeStateMigrationPath, "utf8")).resolves.toContain("rate_limit_buckets");
     await expect(readFile(historyCitationDenormMigrationPath, "utf8")).resolves.toContain("rendered_from_verification");
+    await expect(readFile(authSessionTokenHashUniqueMigrationPath, "utf8")).resolves.toContain("token_hash");
   });
 });

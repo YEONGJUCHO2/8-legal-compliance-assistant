@@ -23,4 +23,22 @@ describe("rate-limit", () => {
     expect(third.retryAfterMs).toBeGreaterThan(0);
     expect(fourth.allowed).toBe(true);
   });
+
+  test("applies concurrent requests atomically so exactly capacity requests are allowed", async () => {
+    const capacity = 3;
+    const store = createInMemoryRateLimitStore({
+      capacity,
+      refillPerSec: 0
+    });
+
+    const results = await Promise.all(
+      Array.from({ length: capacity * 2 }, () => checkRateLimit(store, "user-atomic", "2026-04-18T00:00:00.000Z"))
+    );
+
+    const allowedCount = results.filter((result) => result.allowed).length;
+    const blockedCount = results.length - allowedCount;
+
+    expect(allowedCount).toBe(capacity);
+    expect(blockedCount).toBe(capacity);
+  });
 });
