@@ -20,10 +20,12 @@
 - 검증: `CODEX_DAEMON_URL=http://127.0.0.1:4200 npx tsx scripts/smoke-engine.ts` 가 structured `answer` JSON 반환
 
 ### 1.3 SMTP 크레덴셜
-- 후보: SendGrid / Mailgun / AWS SES
-- 설정: `SMTP_URL=smtps://user:pass@smtp.provider.com:465` (또는 587 STARTTLS)
+- 후보: Gmail (앱 비밀번호, 일 500건) / SendGrid / Mailgun / AWS SES
+- **Gmail 포맷 주의**: username 에 `@` 가 있어 URL 인코딩 필요 → `smtps://user%40gmail.com:APP_PASS@smtp.gmail.com:465`
 - 별도: `AUTH_FROM_EMAIL=<verified-sender>` (SPF/DKIM 설정 완료된 도메인)
-- 검증: 테스트 계정으로 `/api/auth/request` → 이메일 수신 → 링크 클릭 → 로그인 성공
+- 개발 검증: `npx tsx scripts/smoke-smtp.ts <recipient>` — SMTP_URL 기반 실제 발송, 성공시 JSON `{ok:true, elapsedMs:<>}` 반환
+- 프로덕션 검증: 테스트 계정으로 `/api/auth/request` → 이메일 수신 → 링크 클릭 → 로그인 성공
+- 현재 dev 환경 (2026-04-19): Gmail 앱 비밀번호로 smoke 성공, 2.6초 발송 확인
 
 ### 1.4 `korean-law-mcp` 호스팅
 - 로컬 개발: `LAW_API_KEY=<open-law-key> npm run daemon:law-mcp` → `KOREAN_LAW_MCP_URL=http://127.0.0.1:4100`
