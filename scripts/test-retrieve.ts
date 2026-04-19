@@ -15,12 +15,12 @@ async function main() {
   for (const c of lex.slice(0, 5)) {
     console.log(
       "  ·",
-      c.law_title,
-      c.article_no,
+      c.lawTitle,
+      c.articleNo,
       "effective_from=",
-      c.effective_from,
+      c.effectiveFrom,
       "effective_to=",
-      c.effective_to
+      c.effectiveTo
     );
   }
 
