@@ -6,9 +6,9 @@ Legal Compliance Assistant — Vercel + managed Postgres. Korean-law-mcp hosted 
 
 - Vercel account with project linked to this repo
 - Managed Postgres 16 (Supabase / Neon / RDS) with `pgcrypto` extension
-- `korean-law-mcp` instance reachable over HTTPS
+- `korean-law-mcp` REST service reachable over HTTPS (this repo ships `scripts/law-mcp-server.ts`)
+- Local host (Mac mini or similar) to run `scripts/codex-daemon.ts` 24/7 via launchd, with `codex` CLI logged in
 - SMTP provider account (SendGrid / Mailgun / SES) configured for magic-link delivery
-- Anthropic API key
 - `open.law.go.kr` OpenAPI key
 
 ## First-time setup
@@ -33,17 +33,27 @@ Legal Compliance Assistant — Vercel + managed Postgres. Korean-law-mcp hosted 
 
 4. **Configure Vercel project secrets**
    Copy every key from `.env.production.example` to Vercel Project Settings → Environment Variables (Production scope):
-   - `DATABASE_URL`, `LAW_API_KEY`, `KOREAN_LAW_MCP_URL`, `ANTHROPIC_API_KEY`
+   - `DATABASE_URL`, `LAW_API_KEY`, `KOREAN_LAW_MCP_URL`, `CODEX_DAEMON_URL`
    - `APP_BASE_URL`, `AUTH_SECRET` (64+ bytes random), `AUTH_FROM_EMAIL`, `SMTP_URL`
    - `METRICS_ACCESS_TOKEN` (rotate periodically)
-   - `ENGINE_PROVIDER=anthropic`
-   - Deadline budgets (defaults in example file are tuned for Vercel Node 60s maxDuration)
+   - `ENGINE_PROVIDER=codex`
+   - Deadline budgets (defaults in example file are tuned for Vercel Node 60s maxDuration; note that the codex daemon smoke showed ~21s p50, so tighten ENGINE_DEADLINE_MS with the daemon's real latency in mind)
+   - `ANTHROPIC_API_KEY` is **optional** — only populate if flipping `ENGINE_PROVIDER=anthropic` during a codex availability incident.
 
 5. **Deploy**
    ```bash
    vercel --prod
    ```
    Or push to `main` — Vercel auto-deploys on push if the integration is enabled.
+
+5.5 **Deploy Korean Law MCP server**
+   - 로컬/단일 운영 노드면 `LAW_API_KEY=<key> npm run daemon:law-mcp` 또는 `scripts/law-mcp-server.plist` 로 상주시킨다.
+   - 별도 호스팅이면 `scripts/law-mcp-server.ts` 를 Fly.io / Cloud Run 같은 Node 런타임에 올리고 `KOREAN_LAW_MCP_URL=https://<host>` 로 앱 env 를 맞춘다.
+   - smoke:
+   ```bash
+   curl -sS http://127.0.0.1:4100/health
+   curl -sS 'http://127.0.0.1:4100/laws/lookup?title=산업안전보건법'
+   ```
 
 6. **Smoke test after deploy**
    ```bash
@@ -82,7 +92,8 @@ Never edit a shipped migration. Always add new ones.
 
 - `AUTH_SECRET`: rotate once per quarter or immediately if leaked. Existing sessions are invalidated on rotation.
 - `METRICS_ACCESS_TOKEN`: rotate once per month or whenever an operator leaves.
-- `ANTHROPIC_API_KEY`, `LAW_API_KEY`: rotate per vendor policy or on leak suspicion. Update Vercel env → redeploy.
+- `LAW_API_KEY`: rotate per open.law.go.kr policy or on leak suspicion. Update Vercel env → redeploy.
+- `ANTHROPIC_API_KEY` (only if ENGINE_PROVIDER=anthropic fallback is active): rotate per Anthropic policy.
 - `SMTP_URL`: rotate credentials when the provider requires it. Redeploy.
 
 ## Monitoring

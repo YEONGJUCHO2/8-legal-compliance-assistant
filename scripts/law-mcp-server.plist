@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+    <key>Label</key>
+    <string>com.legalcompliance.lawmcpserver</string>
+
+    <key>ProgramArguments</key>
+    <array>
+      <string>/usr/bin/env</string>
+      <string>npx</string>
+      <string>tsx</string>
+      <string>scripts/law-mcp-server.ts</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/macmini-cho/Documents/Project/8-legal-compliance-assistant</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+      <key>PATH</key>
+      <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+      <key>LAW_MCP_HOST</key>
+      <string>127.0.0.1</string>
+      <key>LAW_MCP_PORT</key>
+      <string>4100</string>
+      <key>LAW_API_KEY</key>
+      <string>REPLACE_WITH_OPEN_LAW_KEY</string>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <dict>
+      <key>Crashed</key>
+      <true/>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>/Users/macmini-cho/Library/Logs/legal-compliance-law-mcp.out.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/macmini-cho/Library/Logs/legal-compliance-law-mcp.err.log</string>
+  </dict>
+</plist>

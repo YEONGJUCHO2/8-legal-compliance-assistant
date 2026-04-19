@@ -101,6 +101,7 @@ function parseArticleNode(node: Record<string, unknown>): OpenLawArticle[] {
   const effectiveFrom = normalizeDate(node.조문시행일자);
   const effectiveTo = normalizeDate(node.조문종료일자);
   const repealedAt = normalizeDate(node.조문삭제일자);
+  const changeSummary = readText(node.조문개정구분명) || readText(node.조문참고자료) || null;
 
   if (!articleNo || !body) {
     return [];
@@ -116,6 +117,7 @@ function parseArticleNode(node: Record<string, unknown>): OpenLawArticle[] {
     effectiveFrom,
     effectiveTo,
     repealedAt,
+    changeSummary,
     articlePath: articleNo
   };
 
@@ -140,6 +142,7 @@ function parseArticleNode(node: Record<string, unknown>): OpenLawArticle[] {
         effectiveFrom: paragraphEffectiveFrom,
         effectiveTo: paragraphEffectiveTo,
         repealedAt: paragraphRepealedAt,
+        changeSummary,
         articlePath: `${articleNo}/paragraph:${paragraphNo}`
       });
     }
@@ -165,6 +168,7 @@ function parseArticleNode(node: Record<string, unknown>): OpenLawArticle[] {
           effectiveFrom: normalizeDate(itemRecord.호시행일자) ?? paragraphEffectiveFrom,
           effectiveTo: normalizeDate(itemRecord.호종료일자) ?? paragraphEffectiveTo,
           repealedAt: normalizeDate(itemRecord.호삭제일자) ?? paragraphRepealedAt,
+          changeSummary,
           articlePath: `${articleNo}/paragraph:${paragraphNo ?? "none"}/item:${itemNo}`
         });
     }

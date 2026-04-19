@@ -26,10 +26,10 @@
 - 검증: 테스트 계정으로 `/api/auth/request` → 이메일 수신 → 링크 클릭 → 로그인 성공
 
 ### 1.4 `korean-law-mcp` 호스팅
-- 옵션 A) 직접 운영: [korean-law-mcp](https://github.com/<org>/korean-law-mcp) 레포를 Fly.io / Cloud Run 등에 배포
-- 옵션 B) 관리형 제공자 이용 (있다면)
-- 설정: `KOREAN_LAW_MCP_URL=https://<host>`
-- 검증: `curl <URL>/health` → 200; `/api/ask` 응답이 `verification_source: "mcp"` 포함
+- 로컬 개발: `LAW_API_KEY=<open-law-key> npm run daemon:law-mcp` → `KOREAN_LAW_MCP_URL=http://127.0.0.1:4100`
+- macOS 상주: `scripts/law-mcp-server.plist` 를 `~/Library/LaunchAgents/com.legalcompliance.lawmcpserver.plist` 로 복사 후 `launchctl load/start`
+- 프로덕션: Fly.io / Cloud Run 등으로 `scripts/law-mcp-server.ts` 를 별도 호스팅하고 앱 env `KOREAN_LAW_MCP_URL=https://<host>` 로 지정
+- 검증: `curl <URL>/health` → 200, `/laws/lookup?title=산업안전보건법` → `lawId=001766`, `/api/ask` 응답에 `verification_source: "mcp"` 포함
 
 ### 1.5 관리형 Postgres
 - 후보: Supabase / Neon / AWS RDS

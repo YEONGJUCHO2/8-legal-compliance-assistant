@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "next dev",
     "daemon:codex": "tsx scripts/codex-daemon.ts",
+    "daemon:law-mcp": "tsx scripts/law-mcp-server.ts",
     "build": "next build",
     "start": "next start",
     "test": "vitest run",

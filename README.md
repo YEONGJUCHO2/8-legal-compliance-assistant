@@ -26,7 +26,7 @@
 - Node 22+
 - npm 11+
 - (선택) 로컬 Postgres 16 + `pgcrypto` — 단위/통합 테스트는 in-memory store 로도 돌아감
-- (선택) `korean-law-mcp` 로컬 인스턴스 — 없으면 mock MCP 로 통합 테스트
+- (선택) `korean-law-mcp` 로컬 인스턴스 (`npm run daemon:law-mcp`) — 없으면 mock MCP 로 통합 테스트
 
 ### Setup
 
@@ -41,6 +41,7 @@ cp .env.example .env.local
 ```bash
 npm run dev          # Next dev server on :3000
 npm run daemon:codex # local codex daemon on :4200
+npm run daemon:law-mcp # local law MCP REST server on :4100
 npm test             # vitest unit + integration (187 passed currently)
 npm run test:e2e     # Playwright
 npm run typecheck    # tsc --noEmit
@@ -65,6 +66,21 @@ macOS launchd 로 상주시킬 때는 `scripts/codex-daemon.plist` 를 `~/Librar
 cp scripts/codex-daemon.plist ~/Library/LaunchAgents/com.legalcompliance.codexdaemon.plist
 launchctl load ~/Library/LaunchAgents/com.legalcompliance.codexdaemon.plist
 launchctl start com.legalcompliance.codexdaemon
+```
+
+### Korean Law MCP server
+
+```bash
+LAW_API_KEY=<open-law-key> npm run daemon:law-mcp
+curl -s 'http://127.0.0.1:4100/laws/lookup?title=산업안전보건법'
+```
+
+macOS launchd 로 상주시킬 때는 `scripts/law-mcp-server.plist` 를 `~/Library/LaunchAgents/com.legalcompliance.lawmcpserver.plist` 로 복사한 뒤 아래 순서로 올린다.
+
+```bash
+cp scripts/law-mcp-server.plist ~/Library/LaunchAgents/com.legalcompliance.lawmcpserver.plist
+launchctl load ~/Library/LaunchAgents/com.legalcompliance.lawmcpserver.plist
+launchctl start com.legalcompliance.lawmcpserver
 ```
 
 ## Project layout
@@ -92,7 +108,7 @@ src/
 db/migrations/            # 001_base → 005_history_citation_denormalization (+ 002 vector opt-in)
 evals/                    # wedge-gold.json + regression suites
 tests/                    # unit + integration + e2e + fixtures
-scripts/                  # migrate.ts, sync-laws.ts, resync-flagged.ts
+scripts/                  # migrate.ts, sync-laws.ts, resync-flagged.ts, codex/law daemons
 ```
 
 ## Key contracts

@@ -28,6 +28,7 @@ export type OpenLawArticle = {
   effectiveFrom: string | null;
   effectiveTo: string | null;
   repealedAt: string | null;
+  changeSummary?: string | null;
   articlePath: string;
 };
 

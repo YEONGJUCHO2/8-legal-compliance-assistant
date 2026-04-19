@@ -156,3 +156,19 @@
 - 실스모크: dev 서버 `npm run dev` 부팅 후 `HEAD /login` → `200 OK` 확인
 - 검증: `npm run typecheck` 통과, `npm run lint` 통과
 - 검증: `npm test` 전체 통과 (`75 files, 206 passed, 1 skipped`), `npm run build` 통과
+
+## korean-law-mcp REST 서비스 실구현
+- 상태: 성공
+- 신규 파일: `scripts/{law-mcp-server.ts,law-mcp-server.plist}`, `tests/integration/law-mcp-server.test.ts`, `tests/fixtures/open-law/san-an-law-detail.xml`
+- 변경 파일: `package.json`, `README.md`, `SHIP_CHECKLIST.md`, `DEPLOY.md`, `src/lib/open-law/{types.ts,xml.ts}`
+- 데몬 포트/경로: `127.0.0.1:4100`, `npm run daemon:law-mcp`
+- 구현: `open.law.go.kr` 프록시 REST 서버를 추가해 `/health`, `/laws/lookup`, `/articles/lookup`, `/articles/effective-range`를 제공하고, 기존 `searchLaws/getLawDetail/parseLawDetail`를 재사용했습니다.
+- 구현: TTL 10분 LRU cache, upstream concurrency 5 + queue limit 50, timeout/error mapping, SIGTERM graceful shutdown, launchd plist를 넣었습니다.
+- 파서 보강: 조문 `changeSummary`를 `조문개정구분명` 우선, 없으면 `조문참고자료` fallback으로 읽도록 확장했습니다.
+- 실스모크: `/health` → `{"ok":true,"upstream":"open.law.go.kr"}`
+- 실스모크: `/laws/lookup?title=산업안전보건법` → `{"lawId":"001766","title":"산업안전보건법"}`
+- 실스모크: `/articles/lookup?lawId=001766&articleNo=제10조` → `latestArticleVersionId=001766:제10조:2025-10-01`, `snapshotHash=241037cfc0e23105f5d2a09892c5bef2`
+- 실스모크: `/articles/effective-range?...referenceDate=2026-04-19` → `{"effectiveFrom":"2025-10-01","effectiveTo":null,"repealedAt":null}`
+- 캐시 히트 확인: 통합테스트에서 동일 `/articles/lookup` 2회 호출 시 override upstream `/DRF/lawService.do` 로그 1회만 기록됐고, 실스모크 2번째 호출에서도 pino 로그에 `article_lookup_cache hit` + `elapsedMs=0` 확인
+- 검증: `npm run typecheck` 통과, `npm run lint` 통과
+- 검증: `npm test` 전체 통과 (`76 files, 208 passed, 1 skipped`), `npm run build` 통과
