@@ -1,6 +1,6 @@
 import type { AssistantDeps } from "@/lib/assistant/deps";
 import { createInMemoryEngineSessionStore } from "@/lib/assistant/engine/session-store";
-import type { EngineAdapter, EngineResponse } from "@/lib/assistant/engine/types";
+import type { CitationBlock, EngineAdapter, EngineResponse } from "@/lib/assistant/engine/types";
 import { createInMemoryHistoryStore, type HistoryStore } from "@/lib/assistant/history-store";
 import { createInMemoryIdempotencyStore } from "@/lib/assistant/idempotency";
 import { createInMemoryAuthStore } from "@/lib/auth/in-memory-store";
@@ -46,6 +46,38 @@ export function createStaticEngineAdapter(
         sessionId: "session-regression",
         schemaRetries,
         response
+      };
+    }
+  };
+}
+
+export function createEchoEngineAdapter(seedCitations: Array<{ articleNo: string; body: string }> = []): EngineAdapter {
+  return {
+    provider: "anthropic",
+    async generate(input) {
+      const promptCitations =
+        input.prompt.citations.length > 0
+          ? input.prompt.citations
+          : seedCitations.map(
+              (citation): CitationBlock => ({
+                id: `${citation.articleNo}-seed`,
+                lawTitle: "seed-law",
+                articleNo: citation.articleNo,
+                snapshotHash: `seed:${citation.articleNo}`,
+                body: citation.body
+              })
+            );
+      const echoedBodies = promptCitations.map((citation) => citation.body);
+
+      return {
+        sessionId: "session-regression-echo",
+        schemaRetries: 0,
+        response: {
+          verified_facts: echoedBodies,
+          conclusion: echoedBodies.join(" | "),
+          explanation: echoedBodies.join(" | "),
+          caution: "quoted citation bodies were echoed for regression testing"
+        }
       };
     }
   };

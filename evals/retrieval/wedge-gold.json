@@ -13,6 +13,7 @@
     {
       "id": "q1",
       "category": "baseline-safety",
+      "lawyerVerified": false,
       "query": "산안법 제10조 안전조치",
       "referenceDate": "2025-01-01",
       "expectedLawTitle": "산업안전보건법",
@@ -21,6 +22,7 @@
     {
       "id": "q2",
       "category": "appendix-lookup",
+      "lawyerVerified": false,
       "query": "별표 1 프레스",
       "referenceDate": "2025-01-01",
       "expectedLawTitle": "산업안전보건법",
@@ -29,6 +31,7 @@
     {
       "id": "q3",
       "category": "serious-accident-liability",
+      "lawyerVerified": false,
       "query": "중처법 경영책임자 의무",
       "referenceDate": "2025-01-01",
       "expectedLawTitle": "중대재해 처벌 등에 관한 법률",
@@ -37,6 +40,7 @@
     {
       "id": "q4",
       "category": "baseline-safety",
+      "lawyerVerified": false,
       "query": "안전관리자 선임 의무",
       "referenceDate": "2025-01-01",
       "expectedLawTitle": "산업안전보건법",
@@ -45,6 +49,7 @@
     {
       "id": "q5",
       "category": "contracting",
+      "lawyerVerified": false,
       "query": "도급인의 산업재해 예방 조치",
       "referenceDate": "2025-01-01",
       "expectedLawTitle": "산업안전보건법",
@@ -53,6 +58,7 @@
     {
       "id": "q6",
       "category": "general-obligation",
+      "lawyerVerified": false,
       "query": "사업주의 일반적 안전보건 조치 의무",
       "referenceDate": "2025-01-01",
       "expectedLawTitle": "산업안전보건법",
@@ -61,6 +67,7 @@
     {
       "id": "q7",
       "category": "education",
+      "lawyerVerified": false,
       "query": "신규채용자 안전보건교육",
       "referenceDate": "2025-01-01",
       "expectedLawTitle": "산업안전보건법",
@@ -69,6 +76,7 @@
     {
       "id": "q8",
       "category": "appendix-lookup",
+      "lawyerVerified": false,
       "query": "별표 2 유해위험기계",
       "referenceDate": "2025-01-01",
       "expectedLawTitle": "산업안전보건법",

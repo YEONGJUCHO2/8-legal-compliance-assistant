@@ -107,3 +107,15 @@
 - 검증: `npm run typecheck` 통과, `npm run lint` 통과, `npm run build` 통과
 - 검증: `npm test -- tests/integration/regression/... tests/unit/wedge-gold.test.ts` 통과 (`7 files, 26 passed, 4 todo`)
 - 검증: `npm test` 전체 (오케스트레이터 재실행) => `72 files, 186 passed, 1 skipped, 4 todo` — Codex가 중간 기록한 `localStorage` 환경 실패 주장은 stale, 최종 풀 스위트는 그린.
+
+## /review F2/F4/F5/F6 수정
+- 상태: 성공
+- 변경 파일: `tests/integration/regression/{pg-09-10-identity-fuzz.test.ts,malicious-corpus.test.ts,helpers.ts}`, `tests/unit/wedge-gold.test.ts`, `evals/retrieval/wedge-gold.json`, `tests/setup.ts`
+- F2: cross-user replay 동어반복을 제거하고, 동일 `tokenHash`를 두 user에 재등록할 수 있는 현재 session storage gap과 first-inserted owner lookup 거동을 고정했습니다.
+- F4: malicious retrieval override를 `Awaited<ReturnType<AssistantDeps["retrieveFn"]>>` + `RetrievalCandidate[]` 로 명시해 `as never`를 제거했습니다.
+- F5: `createEchoEngineAdapter()`는 유지하고, malicious-corpus assertion을 "payload 부재"가 아니라 structured envelope 유지로 재정의했습니다.
+- F6: wedge gold item 전부에 `lawyerVerified: false`를 추가했고, zod schema 및 "현재 검증 0건" 테스트를 반영했습니다.
+- 추가 수정: Node/Vitest 환경의 깨진 `localStorage` (`getItem`/`clear` undefined) 때문에 전체 스위트가 실패해, `tests/setup.ts`에 메모리 storage polyfill을 넣어 test 환경을 안정화했습니다.
+- 검증: `npm run typecheck` 통과, `npm run lint` 통과
+- 검증: `npm test -- tests/integration/regression/malicious-corpus.test.ts` 통과
+- 검증: `npm test` 전체 통과 (`72 files, 187 passed, 1 skipped, 4 todo`)

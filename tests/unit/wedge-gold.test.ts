@@ -21,6 +21,7 @@ const wedgeGoldSchema = z.object({
     z.object({
       id: z.string().min(1),
       category: z.enum(allowedCategories),
+      lawyerVerified: z.boolean(),
       query: z.string().min(1),
       referenceDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
       expectedLawTitle: z.string().min(1),
@@ -48,5 +49,11 @@ describe("wedge-gold", () => {
 
     expect(new Set(ids).size).toBe(ids.length);
     expect(parsed.items.every((item) => allowedCategories.includes(item.category))).toBe(true);
+  });
+
+  test("currently keeps lawyer-reviewed coverage at zero until category review is completed", () => {
+    const parsed = wedgeGoldSchema.parse(readWedgeGold());
+    // Expand to at least one verified item per category once lawyer review is completed.
+    expect(parsed.items.filter((item) => item.lawyerVerified)).toHaveLength(0);
   });
 });
