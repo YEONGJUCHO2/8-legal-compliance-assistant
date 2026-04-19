@@ -56,6 +56,19 @@ function normalizeSearchText(value: string) {
   return value.normalize("NFKC").toLowerCase();
 }
 
+function toIsoDate(value: unknown): string | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  if (value instanceof Date) {
+    return value.toISOString().slice(0, 10);
+  }
+  if (typeof value === "string") {
+    return value;
+  }
+  return null;
+}
+
 function mapArticle(row: ArticleRow) {
   return {
     articleId: row.article_id,
@@ -69,9 +82,9 @@ function mapArticle(row: ArticleRow) {
     title: row.title,
     body: row.body,
     snippet: row.body.slice(0, 120),
-    effectiveFrom: row.effective_from,
-    effectiveTo: row.effective_to,
-    repealedAt: row.repealed_at,
+    effectiveFrom: toIsoDate(row.effective_from),
+    effectiveTo: toIsoDate(row.effective_to),
+    repealedAt: toIsoDate(row.repealed_at),
     snapshotHash: row.snapshot_hash,
     sourceHash: row.source_hash
   };
