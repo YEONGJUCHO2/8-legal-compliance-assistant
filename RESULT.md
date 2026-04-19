@@ -94,3 +94,16 @@
 - 타입 확장: `QuestionHistoryCitationRow`에 `law_id`, `law_title`, `article_number`, `in_force_at_query_date`, `answer_strength_downgrade`, `rendered_from_verification` 저장 필드를 추가했습니다.
 - 검증: `npm run lint` 통과, `npm test` => `166 passed, 1 skipped`, `npm run build` 통과, `npm run typecheck` 통과, 신규 테스트 2개 + 기존 테스트 4개 확장
 - 주의: `DEFAULT '' NOT NULL` 컬럼(`law_title`, `article_number`) 때문에 기존 row는 빈 문자열로 마이그레이션되고, denormalized 값은 신규 persist부터 채워집니다.
+
+## Phase 10 Regression Suite 실 구현
+- 상태: 부분 완료
+- 신규 파일: `tests/integration/regression/{helpers.ts,fixtures/malicious-corpus.ts,pg-11-backpressure.test.ts,pg-09-10-identity-fuzz.test.ts,uf-16-17-date-parser.test.ts,pg-03-schema-retry.test.ts,verification-parallelism.test.ts,malicious-corpus.test.ts}`, `tests/unit/wedge-gold.test.ts`
+- 변경 파일: `evals/regression/{pg-11-backpressure,pg-09-10-identity-fuzz,uf-16-17-date-parser,pg-03-schema-retry,verification-parallelism,malicious-corpus}/README.md`, `evals/retrieval/wedge-gold.json`, `tests/integration/regression/index.test.ts`(삭제)
+- 추가 테스트 개수: +24 (`placeholder 6` → `신규 30`, `todo 4` 포함)
+- 핵심 변경: regression suite 6개를 개별 파일로 분리하고 identity/schema-retry/date-parser/verification/malicious-corpus를 실제 API 시그니처 기준으로 고정했습니다.
+- 핵심 변경: wedge gold-set에 `category` 필드를 추가하고 8개 item으로 확장했으며, zod 기반 schema/unit test를 추가했습니다.
+- 발견 GAP / characterize-as-current: `pg-11-backpressure`는 `createInMemoryRateLimitStore` 동시성 경쟁으로 exact `N/N` split를 재현하지 못해 strict concurrent-cap 검증을 `test.todo`로 남겼습니다.
+- 발견 GAP / characterize-as-current: date parser의 `어제`/`최근`/`요즘` relative phrase는 구현 미지원이라 `test.todo`로 남겼습니다.
+- 검증: `npm run typecheck` 통과, `npm run lint` 통과, `npm run build` 통과
+- 검증: `npm test -- tests/integration/regression/... tests/unit/wedge-gold.test.ts` 통과 (`7 files, 26 passed, 4 todo`)
+- 검증: `npm test` 전체 (오케스트레이터 재실행) => `72 files, 186 passed, 1 skipped, 4 todo` — Codex가 중간 기록한 `localStorage` 환경 실패 주장은 stale, 최종 풀 스위트는 그린.
