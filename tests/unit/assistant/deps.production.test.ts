@@ -4,7 +4,7 @@ const productionEnv = {
   DATABASE_URL: "postgres://postgres:postgres@localhost:5432/legal",
   LAW_API_KEY: "law-api-key",
   KOREAN_LAW_MCP_URL: "https://example.com/mcp",
-  ENGINE_PROVIDER: "anthropic",
+  ENGINE_PROVIDER: "codex",
   ANTHROPIC_API_KEY: "anthropic-key",
   CODEX_DAEMON_URL: "http://127.0.0.1:7777",
   APP_BASE_URL: "http://127.0.0.1:3000",
@@ -40,7 +40,7 @@ describe("assistant deps production wiring", () => {
     expect("db" in deps.authStore).toBe(true);
     expect("db" in (deps.serviceUpdateStore ?? {})).toBe(true);
     expect(typeof deps.mailer?.send).toBe("function");
-    expect(deps.engine.provider).toBe("anthropic");
+    expect(deps.engine.provider).toBe("codex");
     expect(typeof deps.storage.findArticlesByLexical).toBe("function");
   });
 

@@ -5,6 +5,7 @@
   "packageManager": "npm@11.12.1",
   "scripts": {
     "dev": "next dev",
+    "daemon:codex": "tsx scripts/codex-daemon.ts",
     "build": "next build",
     "start": "next start",
     "test": "vitest run",

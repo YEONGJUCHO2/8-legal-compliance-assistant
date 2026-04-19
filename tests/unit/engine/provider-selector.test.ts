@@ -27,10 +27,10 @@ describe("createEngineAdapter", () => {
     expect(adapter.provider).toBe("anthropic");
   });
 
-  test("returns the Codex stub when env selects codex_stub", () => {
+  test("returns the Codex adapter when env selects codex", () => {
     const adapter = createEngineAdapter({
       ...baseEnv,
-      ENGINE_PROVIDER: "codex_stub"
+      ENGINE_PROVIDER: "codex"
     });
 
     expect(adapter.provider).toBe("codex");

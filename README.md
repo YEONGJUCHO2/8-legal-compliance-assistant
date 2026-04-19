@@ -11,7 +11,7 @@
 
 - Next.js 15 App Router (Node runtime pinned, 60s maxDuration)
 - PostgreSQL 16 (관리형 권장, `pgcrypto` 필요; `pgvector` 미사용 — Phase 02b bake-off 결론: targeted cache + live MCP)
-- Engine adapter: Anthropic Messages API (프로덕션), `codex_stub` (개발)
+- Engine adapter: 로컬 `codex` CLI 를 감싼 Node daemon (`scripts/codex-daemon.ts`)
 - 인용 검증: `korean-law-mcp` 런타임 호출, 불일치 시 `verification_pending` downgrade
 - Auth: magic-link (pure-Node SMTP, `node:net`/`node:tls`)
 
@@ -40,6 +40,7 @@ cp .env.example .env.local
 
 ```bash
 npm run dev          # Next dev server on :3000
+npm run daemon:codex # local codex daemon on :4200
 npm test             # vitest unit + integration (187 passed currently)
 npm run test:e2e     # Playwright
 npm run typecheck    # tsc --noEmit
@@ -49,6 +50,22 @@ npm run migrate      # scripts/migrate.ts (requires DATABASE_URL)
 ```
 
 dev 모드는 NODE_ENV !== production 에서 fixture XML 을 in-memory LawStorage 로 시드하고 결정적 engine/MCP stub 을 주입한다 (`src/lib/assistant/dev-seed.ts`). production 에서는 실제 dependency 가 없으면 boot 거부.
+
+### Codex daemon
+
+```bash
+npm run daemon:codex
+curl -s http://127.0.0.1:4200/health
+npx tsx scripts/smoke-engine.ts
+```
+
+macOS launchd 로 상주시킬 때는 `scripts/codex-daemon.plist` 를 `~/Library/LaunchAgents/com.legalcompliance.codexdaemon.plist` 로 복사한 뒤 아래 순서로 올린다.
+
+```bash
+cp scripts/codex-daemon.plist ~/Library/LaunchAgents/com.legalcompliance.codexdaemon.plist
+launchctl load ~/Library/LaunchAgents/com.legalcompliance.codexdaemon.plist
+launchctl start com.legalcompliance.codexdaemon
+```
 
 ## Project layout
 

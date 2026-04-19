@@ -13,10 +13,11 @@
 - 설정: Vercel env `LAW_API_KEY`
 - 검증: `DATABASE_URL=<prod> LAW_API_KEY=<key> npx tsx scripts/sync-laws.ts` 실행, `law_documents` 테이블에 MVP 6법령이 올라왔는지 확인
 
-### 1.2 Anthropic API 키
-- 신청: https://console.anthropic.com → API Keys
-- 설정: Vercel env `ANTHROPIC_API_KEY`, `ENGINE_PROVIDER=anthropic`
-- 검증: deploy 후 임의 질문 1건 `/api/ask` → `kind: "answer"` 반환 확인
+### 1.2 Codex CLI + 데몬 기동
+- 로컬/운영 호스트에 `codex --version` 이 성공하고 로그인 상태가 유지되는지 확인
+- 설정: `ENGINE_PROVIDER=codex`, `CODEX_DAEMON_URL=http://127.0.0.1:4200`
+- 검증: `npm run daemon:codex` → `curl http://127.0.0.1:4200/health` 가 `{"ok":true}` 반환
+- 검증: `CODEX_DAEMON_URL=http://127.0.0.1:4200 npx tsx scripts/smoke-engine.ts` 가 structured `answer` JSON 반환
 
 ### 1.3 SMTP 크레덴셜
 - 후보: SendGrid / Mailgun / AWS SES
@@ -54,7 +55,14 @@
 ### 2.3 첫 배포 smoke
 - 배포 완료 후 `OPERATIONS.md` 의 "Health snapshot" 섹션 전체 실행, 5개 모두 기대값 일치 확인
 
-### 2.4 GitHub Actions CI (🟡 권장)
+### 2.4 launchd plist 설치 (🟡 권장)
+- `scripts/codex-daemon.plist` 를 `~/Library/LaunchAgents/com.legalcompliance.codexdaemon.plist` 로 복사
+- `launchctl load ~/Library/LaunchAgents/com.legalcompliance.codexdaemon.plist`
+- `launchctl start com.legalcompliance.codexdaemon`
+- 로그 확인: `tail -f ~/Library/Logs/legal-compliance-codex-daemon.out.log`
+- 실패 시 `launchctl unload ~/Library/LaunchAgents/com.legalcompliance.codexdaemon.plist` 후 plist/env 정정
+
+### 2.5 GitHub Actions CI (🟡 권장)
 Autonomous 세션에서 사용된 GitHub OAuth 토큰에 `workflow` scope 가 없어서 `.github/workflows/ci.yml` 을 push 할 수 없었음. 사용자가 `workflow` scope 가 포함된 Personal Access Token 으로 로컬 커밋·push 하거나, GitHub UI 에서 직접 파일을 추가해야 CI 가 켜짐.
 
 **추가 경로**: `.github/workflows/ci.yml`
@@ -93,7 +101,7 @@ jobs:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/legal_compliance
       LAW_API_KEY: ci-placeholder
       KOREAN_LAW_MCP_URL: http://127.0.0.1:4100
-      ENGINE_PROVIDER: codex_stub
+      ENGINE_PROVIDER: codex
       ANTHROPIC_API_KEY: ci-placeholder
       CODEX_DAEMON_URL: http://127.0.0.1:4200
       APP_BASE_URL: http://127.0.0.1:3000
@@ -123,7 +131,7 @@ jobs:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/legal_compliance
       LAW_API_KEY: ci-placeholder
       KOREAN_LAW_MCP_URL: http://127.0.0.1:4100
-      ENGINE_PROVIDER: codex_stub
+      ENGINE_PROVIDER: codex
       ANTHROPIC_API_KEY: ci-placeholder
       CODEX_DAEMON_URL: http://127.0.0.1:4200
       APP_BASE_URL: http://127.0.0.1:3000
@@ -153,7 +161,7 @@ jobs:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/legal_compliance
       LAW_API_KEY: ci-placeholder
       KOREAN_LAW_MCP_URL: http://127.0.0.1:4100
-      ENGINE_PROVIDER: codex_stub
+      ENGINE_PROVIDER: codex
       ANTHROPIC_API_KEY: ci-placeholder
       CODEX_DAEMON_URL: http://127.0.0.1:4200
       APP_BASE_URL: http://127.0.0.1:3000

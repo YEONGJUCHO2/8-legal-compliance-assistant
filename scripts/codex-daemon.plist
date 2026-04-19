@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+    <key>Label</key>
+    <string>com.legalcompliance.codexdaemon</string>
+
+    <key>ProgramArguments</key>
+    <array>
+      <string>/usr/bin/env</string>
+      <string>npx</string>
+      <string>tsx</string>
+      <string>scripts/codex-daemon.ts</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/macmini-cho/Documents/Project/8-legal-compliance-assistant</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+      <key>PATH</key>
+      <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+      <key>CODEX_DAEMON_HOST</key>
+      <string>127.0.0.1</string>
+      <key>CODEX_DAEMON_PORT</key>
+      <string>4200</string>
+      <key>CODEX_HOME</key>
+      <string>/Users/macmini-cho/.codex</string>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <dict>
+      <key>SuccessfulExit</key>
+      <false/>
+      <key>Crashed</key>
+      <true/>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>/Users/macmini-cho/Library/Logs/legal-compliance-codex-daemon.out.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/macmini-cho/Library/Logs/legal-compliance-codex-daemon.err.log</string>
+  </dict>
+</plist>

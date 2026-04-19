@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-const providerSchema = z.enum(["anthropic", "codex_stub"]);
+const providerSchema = z.enum(["anthropic", "codex"]);
 
 const envSchema = z
   .object({

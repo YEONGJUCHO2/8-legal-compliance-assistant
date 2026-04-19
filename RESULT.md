@@ -143,3 +143,16 @@
 - DB 검증: 산업안전보건법 1109 / 시행령 894 / 시행규칙 1522 / 안전보건기준 규칙 2630 / 중처법 75 / 중처법 시행령 89
 - 검증: `npm run typecheck` 통과, `npm run lint` 통과, `npm test` (`73 files, 200 passed, 1 skipped`) 통과, `npm run build` 통과
 - 주의: 실제 sync 중 sanitize logger가 `「」`, `①`, `■` 같은 문자 드롭 경고를 대량 출력했습니다. 적재는 완료됐지만 sanitizer 허용 문자셋은 후속 점검 가치가 있습니다.
+
+## Codex 로컬 데몬 실구현
+- 상태: 성공
+- 신규 파일: `scripts/{codex-daemon.ts,codex-daemon.plist,smoke-engine.ts}`, `tests/{integration/codex-daemon.test.ts,unit/engine/codex.test.ts}`
+- 변경 파일: `.env.example`, `package.json`, `README.md`, `SHIP_CHECKLIST.md`, `src/lib/{env.ts,assistant/engine/codex.ts,assistant/schemas/index.ts}`, `tests/unit/{engine/provider-selector.test.ts,assistant/deps.production.test.ts}`
+- 데몬 포트/경로: `127.0.0.1:4200`, `npm run daemon:codex`, launchd plist `scripts/codex-daemon.plist`
+- 구현: Node HTTP daemon이 `codex exec --json`을 직렬 큐로 감싸고, macOS에서는 `script` 기반 pseudo-tty로 실 CLI를 호출합니다. schema retry 1회, health, session rollout cache, busy/timeout/error envelope를 넣었습니다.
+- 구현: `createCodexAdapter()`는 daemon HTTP 호출 + schema JSON 주입 + null strip 정규화 + session-store handle 재사용으로 실엔진 경로를 연결했습니다.
+- 실스모크: `curl http://127.0.0.1:4200/health` → `{\"ok\":true,\"codex_version\":\"codex-cli 0.121.0\"}`
+- 실스모크: `CODEX_DAEMON_URL=http://127.0.0.1:4200 npx tsx scripts/smoke-engine.ts` 성공, `elapsedMs=20949`, `schemaRetries=0`
+- 실스모크: dev 서버 `npm run dev` 부팅 후 `HEAD /login` → `200 OK` 확인
+- 검증: `npm run typecheck` 통과, `npm run lint` 통과
+- 검증: `npm test` 전체 통과 (`75 files, 206 passed, 1 skipped`), `npm run build` 통과
