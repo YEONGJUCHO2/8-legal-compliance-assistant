@@ -6,6 +6,9 @@ follows Keep a Changelog; dates are in ISO 8601.
 ## [Unreleased]
 
 ### Added
+- **Librarian query-rewrite hop** (`src/lib/assistant/query-rewrite.ts`, `schemas/query-rewrite.schema.ts`, migration `007_assistant_runs_query_rewrite.sql`). Before retrieval runs, Codex rewrites the user's natural-language question into statute-facing legal terms (`legal_terms`, `law_hints`, `article_hints`, `intent_summary`). Field slang like 공구리 / 족장 / 신나통 / 안전띠 / 곤도라 now reaches the right statute ("제331조의2 거푸집 조립 시의 안전조치", 비계 규칙, etc.) via LLM translation — no hardcoded synonym table.
+- **Candidate cap** `RETRIEVAL_CANDIDATE_CAP` (default 5) threaded through retrieval + MCP verification so the 60s Vercel function budget holds even on longer codex latency.
+- **Production deployment** on Vercel at https://8-legal-compliance-assistant.vercel.app (yeongjucho2 scope), Neon Postgres backing store (6 MVP laws / 6,319 articles / 6,357 versions loaded), Codex daemon + korean-law-mcp exposed over Tailscale Funnel, Gmail SMTP for magic links.
 - Production deploy configuration: `vercel.json` (regions=icn1, per-route Node runtime + maxDuration), `.env.production.example`, `docker-compose.yml` for local Postgres, CI workflow YAML inlined into `SHIP_CHECKLIST.md` §2.4 (operator applies with a `workflow`-scoped token).
 - Security headers in `next.config.ts`: HSTS, X-Frame-Options=DENY, X-Content-Type-Options=nosniff, Referrer-Policy, Permissions-Policy, Content-Security-Policy, `poweredByHeader: false`.
 - `POST /api/auth/logout` route — revokes the session row matching the current `app_session` cookie and clears the cookie. Idempotent on missing or mismatched tokens.
