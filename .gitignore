@@ -17,3 +17,7 @@ yarn-error.log*
 .DS_Store
 .vercel
 .env*.local
+
+# Codex 위임 작업 아티팩트 (로컬 전용, 저장소 미포함)
+PLAN_*.md
+RESULT_*.md
