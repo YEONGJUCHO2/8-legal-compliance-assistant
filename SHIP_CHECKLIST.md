@@ -57,12 +57,19 @@
 ### 2.3 첫 배포 smoke
 - 배포 완료 후 `OPERATIONS.md` 의 "Health snapshot" 섹션 전체 실행, 5개 모두 기대값 일치 확인
 
-### 2.4 launchd plist 설치 (🟡 권장)
+### 2.4 launchd plist 설치 (🟢 선택 — 스킵 결정됨 2026-04-20)
+운영자 선호: 재부팅 후 수동 재기동 경로. 아래 두 줄로 충분하고 RAM/CPU 부담은 동일하므로 launchd 없이 운용.
+```bash
+set -a && source .env.local && set +a
+npm run daemon:law-mcp &
+npm run daemon:codex &
+```
+Tailscale Funnel 의 443/8443 포트 매핑은 `tailscaled` 서비스가 재부팅 시 자동 복원하므로 데몬만 띄우면 끝.
+원래 가이드 (미사용):
 - `scripts/codex-daemon.plist` 를 `~/Library/LaunchAgents/com.legalcompliance.codexdaemon.plist` 로 복사
 - `launchctl load ~/Library/LaunchAgents/com.legalcompliance.codexdaemon.plist`
 - `launchctl start com.legalcompliance.codexdaemon`
 - 로그 확인: `tail -f ~/Library/Logs/legal-compliance-codex-daemon.out.log`
-- 실패 시 `launchctl unload ~/Library/LaunchAgents/com.legalcompliance.codexdaemon.plist` 후 plist/env 정정
 
 ### 2.5 GitHub Actions CI (🟡 권장)
 Autonomous 세션에서 사용된 GitHub OAuth 토큰에 `workflow` scope 가 없어서 `.github/workflows/ci.yml` 을 push 할 수 없었음. 사용자가 `workflow` scope 가 포함된 Personal Access Token 으로 로컬 커밋·push 하거나, GitHub UI 에서 직접 파일을 추가해야 CI 가 켜짐.
