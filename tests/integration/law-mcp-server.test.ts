@@ -11,6 +11,7 @@ import { afterEach, describe, expect, test } from "vitest";
 const LAW_MCP_TEMP_PREFIX = "legal-compliance-law-mcp-";
 
 type StartedServer = {
+  authToken: string;
   baseUrl: string;
   process: ChildProcess;
   tempRoot: string;
@@ -74,6 +75,8 @@ async function startLawMcpServer() {
   const overridePath = path.join(tempRoot, "override.json");
   const fixturesDir = path.join(process.cwd(), "tests", "fixtures", "open-law");
   const port = await getFreePort();
+  const authToken = "m".repeat(64);
+  const today = new Date().toISOString().slice(0, 10).replaceAll("-", "");
 
   await writeFile(
     overridePath,
@@ -107,7 +110,7 @@ async function startLawMcpServer() {
               ID: "001766",
               target: "law",
               type: "XML",
-              efYd: "20260419"
+              efYd: today
             },
             status: 200,
             bodyFile: path.join(fixturesDir, "san-an-law-detail.xml")
@@ -125,6 +128,7 @@ async function startLawMcpServer() {
     env: {
       ...process.env,
       LAW_API_KEY: "test-law-api-key",
+      KOREAN_LAW_MCP_AUTH_TOKEN: authToken,
       LAW_MCP_HOST: "127.0.0.1",
       LAW_MCP_PORT: String(port),
       OPEN_LAW_FETCH_OVERRIDE_FILE: overridePath,
@@ -133,6 +137,7 @@ async function startLawMcpServer() {
     stdio: ["ignore", "pipe", "pipe"]
   });
   const started = {
+    authToken,
     baseUrl: `http://127.0.0.1:${port}`,
     process: child,
     tempRoot,
@@ -143,6 +148,10 @@ async function startLawMcpServer() {
   startedServers.push(started);
 
   return started;
+}
+
+function currentReferenceDate() {
+  return new Date().toISOString().slice(0, 10);
 }
 
 async function stopLawMcpServer(started: StartedServer) {
@@ -171,17 +180,62 @@ afterEach(async () => {
 });
 
 describe("law-mcp-server", () => {
+  test("keeps health public and requires bearer auth on lookup endpoints", async () => {
+    const started = await startLawMcpServer();
+    const healthResponse = await fetch(`${started.baseUrl}/health`);
+    const unauthorized = await fetch(`${started.baseUrl}/laws/lookup?title=${encodeURIComponent("산업안전보건법")}`);
+    const wrongToken = await fetch(`${started.baseUrl}/laws/lookup?title=${encodeURIComponent("산업안전보건법")}`, {
+      headers: {
+        Authorization: "Bearer wrong-token"
+      }
+    });
+    const authorized = await fetch(`${started.baseUrl}/laws/lookup?title=${encodeURIComponent("산업안전보건법")}`, {
+      headers: {
+        Authorization: `Bearer ${started.authToken}`
+      }
+    });
+
+    expect(healthResponse.status).toBe(200);
+    expect(unauthorized.status).toBe(401);
+    expect(await unauthorized.json()).toEqual({
+      error: "unauthorized"
+    });
+    expect(wrongToken.status).toBe(401);
+    expect(await wrongToken.json()).toEqual({
+      error: "unauthorized"
+    });
+    expect(authorized.status).toBe(200);
+  }, 15_000);
+
   test("serves health and the three lookup endpoints against override upstream XML", async () => {
     const started = await startLawMcpServer();
     const beforeTempDirCount = await countLawMcpTempDirs();
+    const referenceDate = currentReferenceDate();
 
     const healthResponse = await fetch(`${started.baseUrl}/health`);
-    const lawResponse = await fetch(`${started.baseUrl}/laws/lookup?title=${encodeURIComponent("산업안전보건법")}`);
-    const articleResponse = await fetch(`${started.baseUrl}/articles/lookup?lawId=001766&articleNo=${encodeURIComponent("제10조")}`);
+    const lawResponse = await fetch(`${started.baseUrl}/laws/lookup?title=${encodeURIComponent("산업안전보건법")}`, {
+      headers: {
+        Authorization: `Bearer ${started.authToken}`
+      }
+    });
+    const articleResponse = await fetch(`${started.baseUrl}/articles/lookup?lawId=001766&articleNo=${encodeURIComponent("제10조")}`, {
+      headers: {
+        Authorization: `Bearer ${started.authToken}`
+      }
+    });
     const effectiveResponse = await fetch(
-      `${started.baseUrl}/articles/effective-range?lawId=001766&articleNo=${encodeURIComponent("제10조")}&referenceDate=2026-04-19`
+      `${started.baseUrl}/articles/effective-range?lawId=001766&articleNo=${encodeURIComponent("제10조")}&referenceDate=${referenceDate}`,
+      {
+        headers: {
+          Authorization: `Bearer ${started.authToken}`
+        }
+      }
     );
-    const missingResponse = await fetch(`${started.baseUrl}/laws/lookup?title=${encodeURIComponent("없는법")}`);
+    const missingResponse = await fetch(`${started.baseUrl}/laws/lookup?title=${encodeURIComponent("없는법")}`, {
+      headers: {
+        Authorization: `Bearer ${started.authToken}`
+      }
+    });
 
     expect(await healthResponse.json()).toEqual({
       ok: true,
@@ -212,8 +266,16 @@ describe("law-mcp-server", () => {
   test("serves repeated lookups from cache without a second upstream fetch", async () => {
     const started = await startLawMcpServer();
 
-    const first = await fetch(`${started.baseUrl}/articles/lookup?lawId=001766&articleNo=${encodeURIComponent("제10조")}`);
-    const second = await fetch(`${started.baseUrl}/articles/lookup?lawId=001766&articleNo=${encodeURIComponent("제10조")}`);
+    const first = await fetch(`${started.baseUrl}/articles/lookup?lawId=001766&articleNo=${encodeURIComponent("제10조")}`, {
+      headers: {
+        Authorization: `Bearer ${started.authToken}`
+      }
+    });
+    const second = await fetch(`${started.baseUrl}/articles/lookup?lawId=001766&articleNo=${encodeURIComponent("제10조")}`, {
+      headers: {
+        Authorization: `Bearer ${started.authToken}`
+      }
+    });
     const logLines = (await readFile(started.upstreamLogPath, "utf8"))
       .trim()
       .split("\n")

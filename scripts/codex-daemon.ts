@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { randomUUID, timingSafeEqual } from "node:crypto";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -64,6 +64,7 @@ const SESSION_CACHE_DIR = path.join(
 const SESSION_CACHE_FILE = path.join(SESSION_CACHE_DIR, "sessions.json");
 const HOST = process.env.CODEX_DAEMON_HOST ?? "127.0.0.1";
 const PORT = Number(process.env.CODEX_DAEMON_PORT ?? "4200");
+const AUTH_TOKEN = process.env.CODEX_DAEMON_AUTH_TOKEN;
 const USE_PTY_WRAPPER = process.platform === "darwin" && process.env.CODEX_DAEMON_DISABLE_PTY !== "1";
 
 let draining = false;
@@ -76,6 +77,33 @@ function writeJson(response: ServerResponse, statusCode: number, body: unknown) 
   response.statusCode = statusCode;
   response.setHeader("content-type", "application/json");
   response.end(JSON.stringify(body));
+}
+
+function hasValidBearerToken(request: IncomingMessage, pathname: string) {
+  if (request.method === "GET" && pathname === "/health") {
+    return true;
+  }
+
+  const authorization = request.headers.authorization;
+
+  if (!AUTH_TOKEN || typeof authorization !== "string") {
+    return false;
+  }
+
+  const [scheme, ...rest] = authorization.split(" ");
+  if (scheme?.toLowerCase() !== "bearer" || rest.length === 0) {
+    return false;
+  }
+
+  const provided = rest.join(" ");
+  const expectedBuffer = Buffer.from(AUTH_TOKEN);
+  const providedBuffer = Buffer.from(provided);
+
+  if (expectedBuffer.length !== providedBuffer.length) {
+    return false;
+  }
+
+  return timingSafeEqual(expectedBuffer, providedBuffer);
 }
 
 async function readRequestBody(request: IncomingMessage) {
@@ -600,7 +628,16 @@ async function handleGenerate(request: IncomingMessage, response: ServerResponse
 
 async function handleRequest(request: IncomingMessage, response: ServerResponse) {
   try {
-    if (request.method === "GET" && request.url === "/health") {
+    const pathname = new URL(request.url ?? "/", `http://${HOST}:${PORT}`).pathname;
+
+    if (!hasValidBearerToken(request, pathname)) {
+      writeJson(response, 401, {
+        error: "unauthorized"
+      });
+      return;
+    }
+
+    if (request.method === "GET" && pathname === "/health") {
       writeJson(response, 200, {
         ok: true,
         codex_version: await getCodexVersion()
@@ -608,7 +645,7 @@ async function handleRequest(request: IncomingMessage, response: ServerResponse)
       return;
     }
 
-    if (request.method === "POST" && request.url === "/generate") {
+    if (request.method === "POST" && pathname === "/generate") {
       await handleGenerate(request, response);
       return;
     }
@@ -642,6 +679,11 @@ async function handleRequest(request: IncomingMessage, response: ServerResponse)
 }
 
 export async function startCodexDaemon() {
+  if (!AUTH_TOKEN || AUTH_TOKEN.length < 32) {
+    logger.error("CODEX_DAEMON_AUTH_TOKEN must be set to a 32+ char shared secret");
+    throw new Error("codex_daemon_auth_token_missing");
+  }
+
   await loadSessionCache();
   const server = createServer((request, response) => {
     void handleRequest(request, response);
@@ -680,6 +722,6 @@ const isMainModule =
 if (isMainModule) {
   void startCodexDaemon().catch((error) => {
     logger.error({ error }, "codex_daemon_boot_failed");
-    process.exitCode = 1;
+    process.exit(1);
   });
 }

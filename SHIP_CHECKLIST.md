@@ -16,7 +16,8 @@
 ### 1.2 Codex CLI + 데몬 기동
 - 로컬/운영 호스트에 `codex --version` 이 성공하고 로그인 상태가 유지되는지 확인
 - 설정: `ENGINE_PROVIDER=codex`, `CODEX_DAEMON_URL=http://127.0.0.1:4200`
-- 검증: `npm run daemon:codex` → `curl http://127.0.0.1:4200/health` 가 `{"ok":true}` 반환
+- 설정: `CODEX_DAEMON_AUTH_TOKEN=$(openssl rand -hex 32)` 생성 후 앱 env와 codex daemon env에 동일값으로 설정
+- 검증: `set -a && source .env.local && set +a && npm run daemon:codex` → `curl http://127.0.0.1:4200/health` 가 `{"ok":true}` 반환
 - 검증: `CODEX_DAEMON_URL=http://127.0.0.1:4200 npx tsx scripts/smoke-engine.ts` 가 structured `answer` JSON 반환
 
 ### 1.3 SMTP 크레덴셜
@@ -28,7 +29,8 @@
 - 현재 dev 환경 (2026-04-19): Gmail 앱 비밀번호로 smoke 성공, 2.6초 발송 확인
 
 ### 1.4 `korean-law-mcp` 호스팅
-- 로컬 개발: `LAW_API_KEY=<open-law-key> npm run daemon:law-mcp` → `KOREAN_LAW_MCP_URL=http://127.0.0.1:4100`
+- 로컬 개발: `set -a && source .env.local && set +a && LAW_API_KEY=<open-law-key> npm run daemon:law-mcp` → `KOREAN_LAW_MCP_URL=http://127.0.0.1:4100`
+- 설정: `KOREAN_LAW_MCP_AUTH_TOKEN=$(openssl rand -hex 32)` 생성 후 앱 env와 law-mcp daemon env에 동일값으로 설정
 - macOS 상주: `scripts/law-mcp-server.plist` 를 `~/Library/LaunchAgents/com.legalcompliance.lawmcpserver.plist` 로 복사 후 `launchctl load/start`
 - 프로덕션: Fly.io / Cloud Run 등으로 `scripts/law-mcp-server.ts` 를 별도 호스팅하고 앱 env `KOREAN_LAW_MCP_URL=https://<host>` 로 지정
 - 검증: `curl <URL>/health` → 200, `/laws/lookup?title=산업안전보건법` → `lawId=001766`, `/api/ask` 응답에 `verification_source: "mcp"` 포함
@@ -64,6 +66,7 @@ set -a && source .env.local && set +a
 npm run daemon:law-mcp &
 npm run daemon:codex &
 ```
+`.env.local` 의 `CODEX_DAEMON_AUTH_TOKEN`, `KOREAN_LAW_MCP_AUTH_TOKEN` 을 바꿨으면 두 daemon 을 직접 재기동해야 새 Bearer 시크릿이 반영됩니다.
 Tailscale Funnel 의 443/8443 포트 매핑은 `tailscaled` 서비스가 재부팅 시 자동 복원하므로 데몬만 띄우면 끝.
 원래 가이드 (미사용):
 - `scripts/codex-daemon.plist` 를 `~/Library/LaunchAgents/com.legalcompliance.codexdaemon.plist` 로 복사

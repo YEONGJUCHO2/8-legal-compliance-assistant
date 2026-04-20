@@ -9,12 +9,14 @@ const validEnv = {
   ENGINE_PROVIDER: "anthropic",
   ANTHROPIC_API_KEY: "anthropic-key",
   CODEX_DAEMON_URL: "http://127.0.0.1:7777",
+  CODEX_DAEMON_AUTH_TOKEN: "c".repeat(64),
   APP_BASE_URL: "http://127.0.0.1:3000",
   AUTH_SECRET: "a".repeat(32),
   AUTH_MAGIC_LINK_TTL_MINUTES: "15",
   AUTH_FROM_EMAIL: "legal-compliance@example.com",
   METRICS_ACCESS_TOKEN: "metrics-token",
   SMTP_URL: "smtp://localhost:1025",
+  KOREAN_LAW_MCP_AUTH_TOKEN: "m".repeat(64),
   QUERY_REWRITE_DEADLINE_MS: "1000",
   RETRIEVAL_CANDIDATE_CAP: "5",
   RETRIEVAL_DEADLINE_MS: "500",
@@ -27,6 +29,8 @@ const validEnv = {
 describe("parseEnv", () => {
   test("throws when required values are missing", () => {
     expect(() => parseEnv({ ...validEnv, DATABASE_URL: undefined })).toThrow();
+    expect(() => parseEnv({ ...validEnv, CODEX_DAEMON_AUTH_TOKEN: undefined })).toThrow();
+    expect(() => parseEnv({ ...validEnv, KOREAN_LAW_MCP_AUTH_TOKEN: undefined })).toThrow();
   });
 
   test("throws when the reconciled deadline exceeds the route budget", () => {

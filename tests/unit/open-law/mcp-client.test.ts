@@ -13,8 +13,12 @@ function jsonResponse(body: unknown, status = 200) {
 
 describe("createKoreanLawMcpClient", () => {
   test("maps typed lookup responses from fetchImpl", async () => {
-    const fetchImpl: typeof fetch = async (input) => {
+    const seenAuthorization: string[] = [];
+    const fetchImpl: typeof fetch = async (input, init) => {
       const url = new URL(typeof input === "string" ? input : input.toString());
+      const headers = (init?.headers ?? {}) as Record<string, string>;
+
+      seenAuthorization.push(String(headers.Authorization ?? ""));
 
       if (url.pathname.endsWith("/laws/lookup")) {
         return jsonResponse({
@@ -44,7 +48,8 @@ describe("createKoreanLawMcpClient", () => {
     };
     const client = createKoreanLawMcpClient({
       baseUrl: "https://mcp.example.test",
-      fetchImpl
+      fetchImpl,
+      authToken: "law-mcp-auth-token"
     });
 
     await expect(client.lookupLaw("산업안전보건법")).resolves.toEqual({
@@ -72,6 +77,11 @@ describe("createKoreanLawMcpClient", () => {
       effectiveTo: null,
       repealedAt: null
     });
+    expect(seenAuthorization).toEqual([
+      "Bearer law-mcp-auth-token",
+      "Bearer law-mcp-auth-token",
+      "Bearer law-mcp-auth-token"
+    ]);
   });
 
   test("throws MCPResponseError on malformed responses", async () => {

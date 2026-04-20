@@ -13,7 +13,8 @@ export function createEngineAdapter(env: AppEnv) {
 
   return createCodexAdapter({
     daemonUrl: env.CODEX_DAEMON_URL,
-    deadlineMs: env.ENGINE_DEADLINE_MS
+    deadlineMs: env.ENGINE_DEADLINE_MS,
+    authToken: env.CODEX_DAEMON_AUTH_TOKEN
   });
 }
 

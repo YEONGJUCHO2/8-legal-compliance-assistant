@@ -156,6 +156,7 @@ function createProductionDeps(): AssistantDeps {
       engine: createEngineAdapter(env),
       mcp: createKoreanLawMcpClient({
         baseUrl: env.KOREAN_LAW_MCP_URL,
+        authToken: env.KOREAN_LAW_MCP_AUTH_TOKEN,
         timeoutMs: env.MCP_VERIFY_DEADLINE_MS
       }),
       mailer: createSmtpMailer({

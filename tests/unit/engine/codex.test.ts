@@ -58,6 +58,7 @@ describe("createCodexAdapter", () => {
     const adapter = createCodexAdapter({
       daemonUrl: "http://127.0.0.1:4200",
       deadlineMs: 1000,
+      authToken: "codex-daemon-auth-token",
       fetchImpl,
       sessionStore: store,
       now: () => new Date("2026-04-19T00:00:00.000Z")
@@ -99,6 +100,9 @@ describe("createCodexAdapter", () => {
     expect(firstBody.schemaRef).toBe("answer");
     expect(firstBody.schema).toEqual(engineOutputJsonSchemas.answer);
     expect(firstBody.sessionId).toBeTruthy();
+    expect(firstRequest.headers).toMatchObject({
+      Authorization: "Bearer codex-daemon-auth-token"
+    });
     expect(secondBody.sessionId).toBe(firstBody.sessionId);
   });
 

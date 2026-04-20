@@ -13,6 +13,7 @@ import { engineOutputJsonSchemas } from "@/lib/assistant/schemas";
 const DAEMON_TEMP_PREFIX = "legal-compliance-codex-daemon-";
 
 type StartedDaemon = {
+  authToken: string;
   baseUrl: string;
   homeDir: string;
   logPath: string;
@@ -175,6 +176,7 @@ async function startDaemon(mode = "success"): Promise<StartedDaemon> {
   const counterPath = path.join(tempRoot, "fake-codex.count");
   const port = await getFreePort();
   const fakeBinDir = await writeFakeCodex(tempRoot);
+  const authToken = "c".repeat(64);
   await mkdir(homeDir, { recursive: true });
   const processHandle = spawn(path.join(process.cwd(), "node_modules", ".bin", "tsx"), ["scripts/codex-daemon.ts"], {
     cwd: process.cwd(),
@@ -184,6 +186,7 @@ async function startDaemon(mode = "success"): Promise<StartedDaemon> {
       PATH: `${fakeBinDir}:${process.env.PATH ?? ""}`,
       CODEX_DAEMON_HOST: "127.0.0.1",
       CODEX_DAEMON_PORT: String(port),
+      CODEX_DAEMON_AUTH_TOKEN: authToken,
       CODEX_DAEMON_DISABLE_PTY: "1",
       FAKE_CODEX_MODE: mode,
       FAKE_CODEX_LOG: logPath,
@@ -192,6 +195,7 @@ async function startDaemon(mode = "success"): Promise<StartedDaemon> {
     stdio: ["ignore", "pipe", "pipe"]
   });
   const started = {
+    authToken,
     baseUrl: `http://127.0.0.1:${port}`,
     homeDir,
     logPath,
@@ -220,11 +224,16 @@ async function stopDaemon(started: StartedDaemon) {
   await rm(started.tempRoot, { force: true, recursive: true });
 }
 
-async function postGenerate(baseUrl: string, body: Record<string, unknown>) {
+async function postGenerate(baseUrl: string, body: Record<string, unknown>, authToken?: string) {
   const response = await fetch(`${baseUrl}/generate`, {
     method: "POST",
     headers: {
-      "content-type": "application/json"
+      "content-type": "application/json",
+      ...(authToken
+        ? {
+            Authorization: `Bearer ${authToken}`
+          }
+        : {})
     },
     body: JSON.stringify(body)
   });
@@ -246,6 +255,51 @@ afterEach(async () => {
 });
 
 describe("codex daemon", () => {
+  test("keeps health public and requires bearer auth on generate", async () => {
+    const daemon = await startDaemon();
+    const healthResponse = await fetch(`${daemon.baseUrl}/health`);
+    const unauthorized = await postGenerate(
+      daemon.baseUrl,
+      {
+        prompt: "SYSTEM\nunauthorized\n\nUSER\nquestion",
+        schemaRef: "answer",
+        schema: engineOutputJsonSchemas.answer,
+        timeoutMs: 2000
+      }
+    );
+    const wrongToken = await postGenerate(
+      daemon.baseUrl,
+      {
+        prompt: "SYSTEM\nwrong\n\nUSER\nquestion",
+        schemaRef: "answer",
+        schema: engineOutputJsonSchemas.answer,
+        timeoutMs: 2000
+      },
+      "wrong-token"
+    );
+    const authorized = await postGenerate(
+      daemon.baseUrl,
+      {
+        prompt: "SYSTEM\nauthorized\n\nUSER\nquestion",
+        schemaRef: "answer",
+        schema: engineOutputJsonSchemas.answer,
+        timeoutMs: 2000
+      },
+      daemon.authToken
+    );
+
+    expect(healthResponse.status).toBe(200);
+    expect(unauthorized.status).toBe(401);
+    expect(unauthorized.json).toEqual({
+      error: "unauthorized"
+    });
+    expect(wrongToken.status).toBe(401);
+    expect(wrongToken.json).toEqual({
+      error: "unauthorized"
+    });
+    expect(authorized.status).toBe(200);
+  }, 15_000);
+
   test("returns health and resumes codex rollouts through a stable daemon session handle", async () => {
     const daemon = await startDaemon();
     const healthResponse = await fetch(`${daemon.baseUrl}/health`);
@@ -256,20 +310,28 @@ describe("codex daemon", () => {
       codex_version: "codex-cli 0.121.0-fake"
     });
 
-    const first = await postGenerate(daemon.baseUrl, {
-      prompt: "SYSTEM\nfirst\n\nUSER\nquestion",
-      schemaRef: "answer",
-      schema: engineOutputJsonSchemas.answer,
-      sessionId: "stable-session-1",
-      timeoutMs: 2000
-    });
-    const second = await postGenerate(daemon.baseUrl, {
-      prompt: "SYSTEM\nsecond\n\nUSER\nquestion",
-      schemaRef: "answer",
-      schema: engineOutputJsonSchemas.answer,
-      sessionId: "stable-session-1",
-      timeoutMs: 2000
-    });
+    const first = await postGenerate(
+      daemon.baseUrl,
+      {
+        prompt: "SYSTEM\nfirst\n\nUSER\nquestion",
+        schemaRef: "answer",
+        schema: engineOutputJsonSchemas.answer,
+        sessionId: "stable-session-1",
+        timeoutMs: 2000
+      },
+      daemon.authToken
+    );
+    const second = await postGenerate(
+      daemon.baseUrl,
+      {
+        prompt: "SYSTEM\nsecond\n\nUSER\nquestion",
+        schemaRef: "answer",
+        schema: engineOutputJsonSchemas.answer,
+        sessionId: "stable-session-1",
+        timeoutMs: 2000
+      },
+      daemon.authToken
+    );
     const logLines = (await readFile(daemon.logPath, "utf8"))
       .trim()
       .split("\n")
@@ -287,12 +349,16 @@ describe("codex daemon", () => {
   test("retries once on invalid JSON output and cleans up temp files", async () => {
     const beforeTempDirCount = await countDaemonTempDirs();
     const daemon = await startDaemon("schema-retry");
-    const result = await postGenerate(daemon.baseUrl, {
-      prompt: "SYSTEM\nretry\n\nUSER\nquestion",
-      schemaRef: "answer",
-      schema: engineOutputJsonSchemas.answer,
-      timeoutMs: 2000
-    });
+    const result = await postGenerate(
+      daemon.baseUrl,
+      {
+        prompt: "SYSTEM\nretry\n\nUSER\nquestion",
+        schemaRef: "answer",
+        schema: engineOutputJsonSchemas.answer,
+        timeoutMs: 2000
+      },
+      daemon.authToken
+    );
     const afterTempDirCount = await countDaemonTempDirs();
 
     expect(result.status).toBe(200);

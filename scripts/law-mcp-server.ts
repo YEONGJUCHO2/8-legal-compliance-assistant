@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { randomUUID, timingSafeEqual } from "node:crypto";
 import { appendFile, readFile } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import path from "node:path";
@@ -32,6 +32,7 @@ const logger = pino({
 const HOST = process.env.LAW_MCP_HOST ?? "127.0.0.1";
 const PORT = Number(process.env.LAW_MCP_PORT ?? "4100");
 const LAW_API_KEY = process.env.LAW_API_KEY;
+const AUTH_TOKEN = process.env.KOREAN_LAW_MCP_AUTH_TOKEN;
 const UPSTREAM_TIMEOUT_MS = Number(process.env.LAW_MCP_UPSTREAM_TIMEOUT_MS ?? "15000");
 const UPSTREAM_CONCURRENCY = Number(process.env.LAW_MCP_UPSTREAM_CONCURRENCY ?? "5");
 const UPSTREAM_QUEUE_LIMIT = Number(process.env.LAW_MCP_UPSTREAM_QUEUE_LIMIT ?? "50");
@@ -155,6 +156,33 @@ function writeJson(response: ServerResponse, status: number, body: unknown) {
   response.statusCode = status;
   response.setHeader("content-type", "application/json");
   response.end(JSON.stringify(body));
+}
+
+function hasValidBearerToken(request: IncomingMessage, pathname: string) {
+  if (request.method === "GET" && pathname === "/health") {
+    return true;
+  }
+
+  const authorization = request.headers.authorization;
+
+  if (!AUTH_TOKEN || typeof authorization !== "string") {
+    return false;
+  }
+
+  const [scheme, ...rest] = authorization.split(" ");
+  if (scheme?.toLowerCase() !== "bearer" || rest.length === 0) {
+    return false;
+  }
+
+  const provided = rest.join(" ");
+  const expectedBuffer = Buffer.from(AUTH_TOKEN);
+  const providedBuffer = Buffer.from(provided);
+
+  if (expectedBuffer.length !== providedBuffer.length) {
+    return false;
+  }
+
+  return timingSafeEqual(expectedBuffer, providedBuffer);
 }
 
 function today() {
@@ -462,13 +490,6 @@ function mapError(error: unknown) {
 }
 
 async function routeRequest(request: IncomingMessage, response: ServerResponse) {
-  if (request.method !== "GET") {
-    writeJson(response, 405, {
-      error: "method_not_allowed"
-    });
-    return;
-  }
-
   const requestId = randomUUID();
   const startedAt = Date.now();
   const url = parseUrl(request);
@@ -477,6 +498,20 @@ async function routeRequest(request: IncomingMessage, response: ServerResponse) 
   logger.info({ requestId, path: url.pathname, query: url.search }, "law_mcp_request_started");
 
   try {
+    if (!hasValidBearerToken(request, url.pathname)) {
+      writeJson(response, 401, {
+        error: "unauthorized"
+      });
+      return;
+    }
+
+    if (request.method !== "GET") {
+      writeJson(response, 405, {
+        error: "method_not_allowed"
+      });
+      return;
+    }
+
     if (url.pathname === "/health") {
       writeJson(response, 200, {
         ok: true,
@@ -522,6 +557,11 @@ export async function startLawMcpServer() {
     throw new Error("LAW_API_KEY is required");
   }
 
+  if (!AUTH_TOKEN || AUTH_TOKEN.length < 32) {
+    logger.error("KOREAN_LAW_MCP_AUTH_TOKEN must be set to a 32+ char shared secret");
+    throw new Error("korean_law_mcp_auth_token_missing");
+  }
+
   const server = createServer((request, response) => {
     void routeRequest(request, response);
   });
@@ -562,6 +602,6 @@ const isMainModule =
 if (isMainModule) {
   void startLawMcpServer().catch((error) => {
     logger.error({ error }, "law_mcp_server_boot_failed");
-    process.exitCode = 1;
+    process.exit(1);
   });
 }

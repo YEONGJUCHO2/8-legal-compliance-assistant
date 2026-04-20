@@ -70,11 +70,13 @@ async function fetchJson<T>({
   url,
   fetchImpl,
   timeoutMs,
+  authToken,
   schema
 }: {
   url: URL;
   fetchImpl: OpenLawFetchImpl;
   timeoutMs: number;
+  authToken?: string;
   schema: z.ZodSchema<T>;
 }) {
   let response: Response;
@@ -82,6 +84,11 @@ async function fetchJson<T>({
   try {
     response = await fetchImpl(url, {
       method: "GET",
+      headers: authToken
+        ? {
+            Authorization: `Bearer ${authToken}`
+          }
+        : undefined,
       signal: AbortSignal.timeout(timeoutMs)
     });
   } catch (error) {
@@ -114,10 +121,12 @@ async function fetchJson<T>({
 export function createKoreanLawMcpClient({
   baseUrl,
   fetchImpl = fetch,
+  authToken,
   timeoutMs = 3_000
 }: {
   baseUrl: string;
   fetchImpl?: OpenLawFetchImpl;
+  authToken?: string;
   timeoutMs?: number;
 }): KoreanLawMcpClient {
   const resolvedBaseUrl = baseUrl.replace(/\/$/, "");
@@ -131,6 +140,7 @@ export function createKoreanLawMcpClient({
         url,
         fetchImpl,
         timeoutMs,
+        authToken,
         schema: mcpLawSchema
       });
     },
@@ -151,6 +161,7 @@ export function createKoreanLawMcpClient({
         url,
         fetchImpl,
         timeoutMs,
+        authToken,
         schema: mcpArticleSchema
       });
     },
@@ -164,6 +175,7 @@ export function createKoreanLawMcpClient({
         url,
         fetchImpl,
         timeoutMs,
+        authToken,
         schema: mcpEffectiveRangeSchema
       });
     }

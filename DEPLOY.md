@@ -34,6 +34,7 @@ Legal Compliance Assistant — Vercel + managed Postgres. Korean-law-mcp hosted 
 4. **Configure Vercel project secrets**
    Copy every key from `.env.production.example` to Vercel Project Settings → Environment Variables (Production scope):
    - `DATABASE_URL`, `LAW_API_KEY`, `KOREAN_LAW_MCP_URL`, `CODEX_DAEMON_URL`
+   - `KOREAN_LAW_MCP_AUTH_TOKEN`, `CODEX_DAEMON_AUTH_TOKEN` (both 32+ char shared secrets; generate with `openssl rand -hex 32`)
    - `APP_BASE_URL`, `AUTH_SECRET` (64+ bytes random), `AUTH_FROM_EMAIL`, `SMTP_URL`
    - `METRICS_ACCESS_TOKEN` (rotate periodically)
    - `ENGINE_PROVIDER=codex`
@@ -47,13 +48,18 @@ Legal Compliance Assistant — Vercel + managed Postgres. Korean-law-mcp hosted 
    Or push to `main` — Vercel auto-deploys on push if the integration is enabled.
 
 5.5 **Deploy Korean Law MCP server**
-   - 로컬/단일 운영 노드면 `LAW_API_KEY=<key> npm run daemon:law-mcp` 또는 `scripts/law-mcp-server.plist` 로 상주시킨다.
-   - 별도 호스팅이면 `scripts/law-mcp-server.ts` 를 Fly.io / Cloud Run 같은 Node 런타임에 올리고 `KOREAN_LAW_MCP_URL=https://<host>` 로 앱 env 를 맞춘다.
+   - 로컬/단일 운영 노드면 `set -a && source .env.local && set +a && LAW_API_KEY=<key> npm run daemon:law-mcp` 또는 `scripts/law-mcp-server.plist` 로 상주시킨다.
+   - 별도 호스팅이면 `scripts/law-mcp-server.ts` 를 Fly.io / Cloud Run 같은 Node 런타임에 올리고 `KOREAN_LAW_MCP_URL=https://<host>`, `KOREAN_LAW_MCP_AUTH_TOKEN=<shared-secret>` 로 앱/daemon env 를 맞춘다.
    - smoke:
    ```bash
    curl -sS http://127.0.0.1:4100/health
    curl -sS 'http://127.0.0.1:4100/laws/lookup?title=산업안전보건법'
    ```
+
+5.6 **Deploy Codex daemon**
+   - 운영 노드에서 `set -a && source .env.local && set +a && npm run daemon:codex` 로 기동한다.
+   - Funnel 또는 공용 HTTPS 앞단을 둘 때 `CODEX_DAEMON_AUTH_TOKEN=<shared-secret>` 를 앱/daemon 양쪽에 동일하게 넣는다.
+   - `CODEX_DAEMON_AUTH_TOKEN` 또는 `KOREAN_LAW_MCP_AUTH_TOKEN` 을 바꾼 뒤에는 해당 daemon 을 직접 재기동해야 새 Bearer 인증이 반영된다.
 
 6. **Smoke test after deploy**
    ```bash

@@ -40,6 +40,7 @@ export class CodexDaemonError extends Error {
 export interface CreateCodexAdapterOptions {
   daemonUrl?: string;
   deadlineMs?: number;
+  authToken?: string;
   fetchImpl?: typeof fetch;
   model?: string;
   sessionStore?: EngineSessionStore;
@@ -146,7 +147,12 @@ export function createCodexAdapter(options: CreateCodexAdapterOptions = {}): Eng
         const response = await fetchImpl(resolveGenerateUrl(options.daemonUrl), {
           method: "POST",
           headers: {
-            "content-type": "application/json"
+            "content-type": "application/json",
+            ...(options.authToken
+              ? {
+                  Authorization: `Bearer ${options.authToken}`
+                }
+              : {})
           },
           body: JSON.stringify(requestBody),
           signal

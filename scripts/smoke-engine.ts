@@ -5,11 +5,13 @@ import { buildPrompt } from "../src/lib/assistant/engine/prompt";
 import { createInMemoryEngineSessionStore } from "../src/lib/assistant/engine/session-store";
 
 const daemonUrl = process.env.CODEX_DAEMON_URL ?? "http://127.0.0.1:4200";
+const authToken = process.env.CODEX_DAEMON_AUTH_TOKEN;
 
 async function main() {
   const adapter = createCodexAdapter({
     daemonUrl,
     deadlineMs: 55_000,
+    authToken,
     sessionStore: createInMemoryEngineSessionStore()
   });
   const prompt = buildPrompt({
