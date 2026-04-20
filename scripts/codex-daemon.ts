@@ -413,6 +413,9 @@ async function runCodexAttempt(input: {
     codexArgs.push("-m", input.model);
   }
 
+  const reasoningEffort = process.env.CODEX_REASONING_EFFORT ?? "medium";
+  codexArgs.push("-c", `model_reasoning_effort="${reasoningEffort}"`);
+
   if (input.resumeRolloutId) {
     codexArgs.push(input.resumeRolloutId);
   }
