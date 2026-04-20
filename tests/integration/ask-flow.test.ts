@@ -12,6 +12,7 @@ import type { AssistantDeps } from "@/lib/assistant/deps";
 import { createAnthropicAdapter } from "@/lib/assistant/engine/anthropic";
 import type { EngineAdapter } from "@/lib/assistant/engine/types";
 import { createInMemoryStorage } from "@/lib/search/in-memory-storage";
+import type { ArticleRecord } from "@/lib/search/storage";
 import { retrieve } from "@/lib/search/retrieve";
 import type { KoreanLawMcpClient } from "@/lib/open-law/mcp-client";
 
@@ -156,6 +157,168 @@ describe("runQuery integration", () => {
     const history = await historyStore.listRuns(user.id);
     expect(history.history).toHaveLength(1);
     expect(history.history[0].status).toBe("answered");
+  });
+
+  test("expands citation text to the full article body while keeping the original quote pointer", async () => {
+    const paragraphOnlyBody = "제1항 본문";
+    const articleRecords: ArticleRecord[] = [
+      {
+        articleId: "article-row",
+        articleVersionId: "article-row-v1",
+        lawId: "law-full-1",
+        lawTitle: "산업안전보건법",
+        articleNo: "제10조",
+        paragraph: null,
+        item: null,
+        kind: "article",
+        body: "제10조 본문",
+        snippet: "제10조 본문",
+        title: "안전조치",
+        effectiveFrom: "2025-01-01",
+        effectiveTo: null,
+        repealedAt: null,
+        snapshotHash: "snap-full-article",
+        sourceHash: "source-full-article"
+      },
+      {
+        articleId: "paragraph-row-1",
+        articleVersionId: "paragraph-row-1-v1",
+        lawId: "law-full-1",
+        lawTitle: "산업안전보건법",
+        articleNo: "제10조",
+        paragraph: "1",
+        item: null,
+        kind: "paragraph",
+        body: paragraphOnlyBody,
+        snippet: paragraphOnlyBody,
+        title: "안전조치",
+        effectiveFrom: "2025-01-01",
+        effectiveTo: null,
+        repealedAt: null,
+        snapshotHash: "snap-full-paragraph-1",
+        sourceHash: "source-full-paragraph-1"
+      },
+      {
+        articleId: "item-row-1",
+        articleVersionId: "item-row-1-v1",
+        lawId: "law-full-1",
+        lawTitle: "산업안전보건법",
+        articleNo: "제10조",
+        paragraph: "1",
+        item: "1",
+        kind: "item",
+        body: "제1호 본문",
+        snippet: "제1호 본문",
+        title: "안전조치",
+        effectiveFrom: "2025-01-01",
+        effectiveTo: null,
+        repealedAt: null,
+        snapshotHash: "snap-full-item-1",
+        sourceHash: "source-full-item-1"
+      },
+      {
+        articleId: "paragraph-row-2",
+        articleVersionId: "paragraph-row-2-v1",
+        lawId: "law-full-1",
+        lawTitle: "산업안전보건법",
+        articleNo: "제10조",
+        paragraph: "2",
+        item: null,
+        kind: "paragraph",
+        body: "제2항 본문",
+        snippet: "제2항 본문",
+        title: "안전조치",
+        effectiveFrom: "2025-01-01",
+        effectiveTo: null,
+        repealedAt: null,
+        snapshotHash: "snap-full-paragraph-2",
+        sourceHash: "source-full-paragraph-2"
+      }
+    ];
+    const { deps, user } = await createDeps({
+      engine: createEngineAdapter(() => ({
+        verified_facts: ["제10조 제1항 기준 안전조치 의무를 확인했습니다."],
+        conclusion: "제10조 전체 본문을 함께 확인해야 합니다.",
+        explanation: "단일 항만 인용됐더라도 조문 전체 본문은 함께 제시되어야 합니다.",
+        caution: "현장 사실관계에 맞게 각 항과 호를 함께 검토하세요."
+      }))
+    });
+
+    deps.storage = createInMemoryStorage(articleRecords);
+    deps.retrieveFn = async () =>
+      ({
+        candidates: [
+          {
+            article_id: "paragraph-row-1",
+            article_version_id: "paragraph-row-1-v1",
+            law_id: "law-full-1",
+            law_title: "산업안전보건법",
+            article_no: "제10조",
+            paragraph: "1",
+            item: null,
+            kind: "paragraph",
+            body: paragraphOnlyBody,
+            snippet: paragraphOnlyBody,
+            effective_from: "2025-01-01",
+            effective_to: null,
+            repealed_at: null,
+            snapshot_hash: "snap-full-paragraph-1",
+            source_hash: "source-full-paragraph-1",
+            score: 0.99,
+            score_components: {
+              lexical: 0.99
+            }
+          }
+        ],
+        strategy: "targeted_cache",
+        emitted_disagreement_capable: true,
+        weak: "strong"
+      }) as never;
+    deps.mcp = {
+      async lookupLaw(title) {
+        return {
+          lawId: `mcp:${title}`,
+          title
+        };
+      },
+      async lookupArticle({ lawId, articleNo }) {
+        return {
+          lawId,
+          articleNo,
+          paragraph: "1",
+          item: null,
+          body: paragraphOnlyBody,
+          snapshotHash: "mcp-snap-full-paragraph-1",
+          latestArticleVersionId: null,
+          changeSummary: null
+        };
+      },
+      async queryEffectiveDate() {
+        return {
+          effectiveFrom: "2025-01-01",
+          effectiveTo: null,
+          repealedAt: null
+        };
+      }
+    } satisfies KoreanLawMcpClient;
+
+    const response = await runQuery({
+      request: {
+        mode: "ask",
+        clientRequestId: "req-full-citation",
+        question: "산안법 제10조 제1항이 궁금합니다.",
+        referenceDate: "2026-04-18"
+      },
+      user,
+      deps,
+      now: "2026-04-18T00:00:00.000Z"
+    });
+
+    expect(response.kind).toBe("answer");
+    if (response.kind === "answer") {
+      expect(response.citations[0].quote).toBe(paragraphOnlyBody);
+      expect(response.citations[0].text).toBe("제10조 본문\n\n제1항 본문\n\n제1호 본문\n\n제2항 본문");
+    }
   });
 
   test("returns verification_pending with a structured fallback answer when answer generation times out", async () => {

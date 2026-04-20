@@ -169,4 +169,56 @@ describe("createDbLawStorage", () => {
     expect(hydrated.map((article) => article.articleId)).toEqual(["article-1", "article-2"]);
     expect(mock.calls[0].query).toContain("ANY($1::uuid[])");
   });
+
+  test("loads a full article body merged across article, paragraph, and item rows", async () => {
+    const mock = createMockSql([
+      () => [
+        {
+          kind: "article",
+          paragraph: null,
+          item: null,
+          body: "제10조 본문"
+        },
+        {
+          kind: "paragraph",
+          paragraph: "1",
+          item: null,
+          body: "제1항 본문"
+        },
+        {
+          kind: "item",
+          paragraph: "1",
+          item: "1",
+          body: "제1호 본문"
+        },
+        {
+          kind: "paragraph",
+          paragraph: "1",
+          item: null,
+          body: "중복 제1항 본문"
+        },
+        {
+          kind: "paragraph",
+          paragraph: "2",
+          item: null,
+          body: "제2항 본문"
+        }
+      ]
+    ]);
+    currentDb = mock.sql;
+    const { createDbLawStorage } = await import("@/lib/db/storage");
+    const storage = createDbLawStorage();
+
+    const body = await storage.loadFullArticleBody({
+      lawId: "law-doc-1",
+      articleNo: "제10조",
+      referenceDate: "2026-04-18"
+    });
+
+    expect(body).toBe("제10조 본문\n\n제1항 본문\n\n제1호 본문\n\n제2항 본문");
+    expect(mock.calls[0].query).toContain("WHERE (ld.id::text = $1 OR ld.law_id = $1)");
+    expect(mock.calls[0].query).toContain("la.article_no = $2");
+    expect(mock.calls[0].query).toContain("(la.effective_from IS NULL OR la.effective_from <= $3::date)");
+    expect(mock.calls[0].query).toContain("CASE la.kind WHEN 'article' THEN 0");
+  });
 });

@@ -1,6 +1,6 @@
 import { getDb } from "@/lib/db/client";
 import { resolveAlias } from "@/lib/open-law/normalize";
-import type { LawStorage } from "@/lib/search/storage";
+import { mergeArticleBodyFragments, type ArticleBodyFragment, type LawStorage } from "@/lib/search/storage";
 
 type ArticleRow = {
   article_id: string;
@@ -19,6 +19,8 @@ type ArticleRow = {
   snapshot_hash: string;
   source_hash: string;
 };
+
+type ArticleBodyRow = ArticleBodyFragment;
 
 const ARTICLE_SELECT = `
   SELECT
@@ -213,6 +215,31 @@ export function createDbLawStorage(): LawStorage {
       return articleIds
         .map((articleId) => byId.get(articleId))
         .filter((article): article is NonNullable<typeof article> => article !== undefined);
+    },
+    async loadFullArticleBody({ lawId, articleNo, referenceDate }) {
+      const rows = await db.unsafe<ArticleBodyRow[]>(
+        `
+          SELECT
+            la.kind,
+            la.paragraph,
+            la.item,
+            la.body
+          FROM law_articles la
+          JOIN law_documents ld
+            ON ld.id = la.law_id
+          WHERE (ld.id::text = $1 OR ld.law_id = $1)
+            AND la.article_no = $2
+            AND (la.effective_from IS NULL OR la.effective_from <= $3::date)
+            AND (la.effective_to IS NULL OR $3::date <= la.effective_to)
+          ORDER BY
+            CASE la.kind WHEN 'article' THEN 0 WHEN 'paragraph' THEN 1 WHEN 'item' THEN 2 WHEN 'appendix' THEN 3 END,
+            la.paragraph NULLS FIRST,
+            la.item NULLS FIRST
+        `,
+        [lawId, articleNo, referenceDate]
+      );
+
+      return mergeArticleBodyFragments(rows);
     }
   };
 }

@@ -94,30 +94,58 @@ function buildNoMatchResponse(runId: string): Extract<AskResponse, { kind: "no_m
   };
 }
 
-function buildCitationList(verified: VerifiedCitation[]): Citation[] {
-  return verified.map((citation) => {
-    const renderedText = citation.rendered_from_verification ? citation.mcpBody ?? citation.localBody : citation.localBody;
-    const verificationSource = citation.verification_source === "missing" ? "missing" : "mcp";
+function renderCitationText(citation: VerifiedCitation) {
+  return citation.rendered_from_verification ? citation.mcpBody ?? citation.localBody : citation.localBody;
+}
 
-    return {
-      law_id: citation.lawId,
-      article_id: citation.id,
-      article_version_id: citation.articleVersionId,
-      text: renderedText,
-      quote: renderedText,
-      law_title: citation.lawTitle,
-      article_number: citation.articleNo,
-      mcp_verified: citation.verifiedAt !== null && verificationSource !== "missing",
-      verified_at: citation.verifiedAt,
-      in_force_at_query_date: citation.inForce,
-      verification_source: verificationSource,
-      rendered_from_verification: citation.rendered_from_verification || undefined,
-      mcp_disagreement: citation.disagreement,
-      answer_strength_downgrade: citation.answerStrengthDowngrade,
-      latest_article_version_id: citation.latestArticleVersionId ?? null,
-      changed_summary: citation.changedSummary ?? citation.failureReason ?? null
-    };
-  });
+async function buildCitationList({
+  verified,
+  storage,
+  referenceDate
+}: {
+  verified: VerifiedCitation[];
+  storage: AssistantDeps["storage"];
+  referenceDate: string;
+}): Promise<Citation[]> {
+  return Promise.all(
+    verified.map(async (citation) => {
+      const renderedText = renderCitationText(citation);
+      const verificationSource = citation.verification_source === "missing" ? "missing" : "mcp";
+      let fullArticleText: string | null = null;
+
+      try {
+        fullArticleText = await storage.loadFullArticleBody({
+          lawId: citation.lawId,
+          articleNo: citation.articleNo,
+          referenceDate
+        });
+      } catch {
+        fullArticleText = null;
+      }
+
+      const expandedText =
+        fullArticleText && fullArticleText.length > renderedText.length ? fullArticleText : renderedText;
+
+      return {
+        law_id: citation.lawId,
+        article_id: citation.id,
+        article_version_id: citation.articleVersionId,
+        text: expandedText,
+        quote: citation.localBody,
+        law_title: citation.lawTitle,
+        article_number: citation.articleNo,
+        mcp_verified: citation.verifiedAt !== null && verificationSource !== "missing",
+        verified_at: citation.verifiedAt,
+        in_force_at_query_date: citation.inForce,
+        verification_source: verificationSource,
+        rendered_from_verification: citation.rendered_from_verification || undefined,
+        mcp_disagreement: citation.disagreement,
+        answer_strength_downgrade: citation.answerStrengthDowngrade,
+        latest_article_version_id: citation.latestArticleVersionId ?? null,
+        changed_summary: citation.changedSummary ?? citation.failureReason ?? null
+      };
+    })
+  );
 }
 
 function buildRenderedFrom(citations: Citation[]) {
@@ -154,7 +182,7 @@ function buildAnswerEnvelope(input: {
   runId: string;
   request: AskRequest;
   behaviorVersion: string;
-  verified: VerifiedCitation[];
+  citations: Citation[];
   verification: VerificationOutput;
   answer: {
     verified_facts: string[];
@@ -177,17 +205,15 @@ function buildAnswerEnvelope(input: {
   answeredScopeFallback?: string[];
   unansweredScopeFallback?: string[];
 }): AnswerEnvelope {
-  const citations = buildCitationList(input.verified);
-
   return {
     kind: "answer",
     runId: input.runId,
     sessionId: input.sessionId,
     status: "answered",
     strength: buildAnswerStrength(input.verification),
-    citations,
+    citations: input.citations,
     effectiveDate: input.request.referenceDate ?? "",
-    renderedFrom: buildRenderedFrom(citations),
+    renderedFrom: buildRenderedFrom(input.citations),
     behaviorVersion: input.behaviorVersion,
     generatedFromSkip: input.generatedFromSkip,
     verifiedFacts: input.answer.verified_facts,
@@ -241,8 +267,7 @@ function isEngineTimeoutLikeError(error: unknown) {
 }
 
 function compactCitationText(citation: VerifiedCitation, maxLength = 90) {
-  const source =
-    citation.rendered_from_verification && citation.mcpBody ? citation.mcpBody : citation.localBody;
+  const source = citation.rendered_from_verification && citation.mcpBody ? citation.mcpBody : citation.localBody;
 
   return source.replace(/\s+/g, " ").trim().slice(0, maxLength);
 }
@@ -256,6 +281,7 @@ function buildEngineTimeoutFallbackAnswer(input: {
   behaviorVersion: string;
   verification: VerificationOutput;
   verified: VerifiedCitation[];
+  citations: Citation[];
   answeredIntents: string[];
   unansweredIntents: string[];
 }) {
@@ -295,7 +321,7 @@ function buildEngineTimeoutFallbackAnswer(input: {
     runId: input.runId,
     request: input.request,
     behaviorVersion: input.behaviorVersion,
-    verified: input.verified,
+    citations: input.citations,
     verification: input.verification,
     answer: {
       verified_facts: verifiedFacts.length > 0 ? verifiedFacts : ["검색된 조문 후보를 우선 확인해 주세요."],
@@ -770,6 +796,12 @@ export async function runQuery({
     });
   }
 
+  const citationList = await buildCitationList({
+    verified: verification.citations,
+    storage: deps.storage,
+    referenceDate: request.referenceDate
+  });
+
   const prompt = buildPrompt({
     userQuestion: request.question,
     referenceDate: request.referenceDate,
@@ -818,6 +850,7 @@ export async function runQuery({
       behaviorVersion,
       verification,
       verified: verification.citations,
+      citations: citationList,
       answeredIntents,
       unansweredIntents
     });
@@ -954,7 +987,7 @@ export async function runQuery({
     runId,
     request,
     behaviorVersion,
-    verified: verification.citations,
+    citations: citationList,
     verification,
     answer: engineResult.response,
     sessionId: engineResult.sessionId,

@@ -1,5 +1,10 @@
 import { normalizeTitle, resolveAlias } from "@/lib/open-law/normalize";
-import type { ArticleCandidate, ArticleRecord, LawStorage } from "@/lib/search/storage";
+import {
+  mergeArticleBodyFragments,
+  type ArticleCandidate,
+  type ArticleRecord,
+  type LawStorage
+} from "@/lib/search/storage";
 
 function normalizeSearchText(value: string) {
   return normalizeTitle(value).toLowerCase();
@@ -85,6 +90,23 @@ export function createInMemoryStorage(articles: ArticleRecord[]): LawStorage {
       return articleIds
         .map((articleId) => articleMap.get(articleId))
         .filter((article): article is ArticleRecord => article !== undefined);
+    },
+    async loadFullArticleBody({ lawId, articleNo, referenceDate }) {
+      return mergeArticleBodyFragments(
+        articles
+          .filter((article) => {
+            const startsBeforeReference = article.effectiveFrom === null || article.effectiveFrom <= referenceDate;
+            const endsAfterReference = article.effectiveTo === null || referenceDate <= article.effectiveTo;
+
+            return article.lawId === lawId && article.articleNo === articleNo && startsBeforeReference && endsAfterReference;
+          })
+          .map((article) => ({
+            kind: article.kind,
+            paragraph: article.paragraph,
+            item: article.item,
+            body: article.body
+          }))
+      );
     }
   };
 }

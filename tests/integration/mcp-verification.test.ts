@@ -93,6 +93,9 @@ async function createAuthedDeps(input: {
       },
       async hydrateArticles() {
         return [];
+      },
+      async loadFullArticleBody() {
+        return null;
       }
     },
     retrieveFn: async () =>
