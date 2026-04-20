@@ -66,4 +66,36 @@ describe("buildPrompt", () => {
     expect(prompt.schemaRef).toBe("query_rewrite");
     expect(prompt.citations).toEqual([]);
   });
+
+  test("includes domain-axis guidance for qualification, education, contractor, and serious-accident retrieval", () => {
+    const prompt = buildQueryRewritePrompt({
+      question: "포항제철소 전로 수리 현장에서 비계 50cm 높이 이상의 비계를 설치하려면 전문 자격이 있어야 하는지?",
+      referenceDate: "2026-04-19"
+    });
+
+    expect(prompt.system).toContain("자격·면허");
+    expect(prompt.system).toContain("교육");
+    expect(prompt.system).toContain("작업 주임자/감독자");
+    expect(prompt.system).toContain("도급·원청");
+    expect(prompt.system).toContain("유해·위험작업");
+    expect(prompt.system).toContain("건설공사 vs 일반사업장");
+    expect(prompt.system).toContain("중대재해 처벌 여부");
+  });
+
+  test("includes short few-shot examples that surface qualification and education law hints", () => {
+    const prompt = buildQueryRewritePrompt({
+      question: "원청이 하청에 밀폐공간 청소를 맡긴 경우 필요한 교육과 작업책임자를 알려줘",
+      referenceDate: "2026-04-19"
+    });
+
+    expect(prompt.system).toContain(
+      "포항제철소 전로 수리 현장에서 비계 50cm 높이 이상의 비계를 설치하려면 전문 자격이 있어야 하는지?"
+    );
+    expect(prompt.system).toContain("비계 기능사");
+    expect(prompt.system).toContain("유해·위험작업의 취업 제한에 관한 규칙");
+    expect(prompt.system).toContain("원청이 하청에 밀폐공간 청소를 맡긴 경우 필요한 교육과 작업책임자를 알려줘");
+    expect(prompt.system).toContain("도급사업");
+    expect(prompt.system).toContain("특별교육");
+    expect(prompt.system).toContain("작업지휘자");
+  });
 });
